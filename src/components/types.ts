@@ -6,6 +6,9 @@ export interface BoardItem {
   content: any;
   rotation?: number;
   color?: string;
+  created_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface User {
@@ -14,5 +17,7 @@ export interface User {
   color: string;
   twitterHandle?: string;
   profilePic?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 

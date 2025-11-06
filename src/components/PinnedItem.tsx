@@ -14,6 +14,7 @@ interface PinnedItemProps {
   onDelete: (id: string) => void;
   isEditMode: boolean;
   users: User[];
+  currentUserId?: string;
 }
 
 const maskingTapeTextures = [
@@ -30,7 +31,7 @@ const maskingTapeTextures = [
   '/assets/images/maskingtape/f08402eb-b275-4034-8d66-4981f93ad679_rw_1200.png',
 ];
 
-export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users }: PinnedItemProps) {
+export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, currentUserId }: PinnedItemProps) {
   // Select random masking tape and rotation once and keep it consistent
   const tapeTexture = useMemo(() => 
     maskingTapeTextures[Math.floor(Math.random() * maskingTapeTextures.length)],
@@ -131,6 +132,7 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users }: Pinn
             content={item.content}
             onChange={(content) => onUpdate(item.id, { content })}
             isEditMode={isEditMode}
+            userId={currentUserId}
           />
         );
       case 'list':

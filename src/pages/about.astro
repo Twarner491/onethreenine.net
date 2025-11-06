@@ -1,26 +1,10 @@
 ---
+import Layout from '../layouts/Layout.astro';
 import AboutComponent from '../components/About';
 import '../styles/index.css';
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>sbout onethreenine</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-    }
-  </style>
-</head>
-<body>
+<Layout title="about onethreenine" description="Learn more about onethreenine.net - a collaborative digital pegboard">
   <AboutComponent client:load />
-</body>
-</html>
+</Layout>
 

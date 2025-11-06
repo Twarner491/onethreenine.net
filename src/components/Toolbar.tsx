@@ -9,8 +9,9 @@ import { toast } from 'sonner';
 interface ToolbarProps {
   onAddItem: (type: 'note' | 'photo' | 'list' | 'receipt' | 'menu') => void;
   currentUser: UserType | null;
-  onLogin: (user: UserType) => void;
+  onLogin: (userData: { name: string }) => void;
   onLogout: () => void;
+  isViewerMode?: boolean;
 }
 
 const maskingTapeTextures = [
@@ -27,7 +28,7 @@ const maskingTapeTextures = [
   '/assets/images/maskingtape/f08402eb-b275-4034-8d66-4981f93ad679_rw_1200.png',
 ];
 
-export function Toolbar({ onAddItem, currentUser, onLogin, onLogout }: ToolbarProps) {
+export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMode = false }: ToolbarProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isToolsExpanded, setIsToolsExpanded] = useState(false);
   const [loginName, setLoginName] = useState('');
@@ -93,21 +94,12 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout }: ToolbarPr
     { type: 'menu' as const, icon: Calendar, label: 'Event' },
   ];
 
-  const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'];
-
   const handleLogin = () => {
     if (loginName.trim()) {
-      const randomColor = colors[Math.floor(Math.random() * colors.length)];
-      
       onLogin({
-        id: Date.now().toString(),
-        name: loginName.trim(),
-        color: randomColor,
-        twitterHandle: undefined,
-        profilePic: undefined
+        name: loginName.trim()
       });
       setLoginName('');
-      toast.success(`Welcome, ${loginName}!`);
     }
   };
 
@@ -188,6 +180,11 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout }: ToolbarPr
         </div>
       </div>
     );
+  }
+
+  // In viewer mode, hide the toolbar completely
+  if (isViewerMode) {
+    return null;
   }
 
   return (

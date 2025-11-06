@@ -113,7 +113,7 @@ export default function About() {
             {/* Back button */}
             <a
               href="/"
-              className="absolute top-4 left-4 flex items-center gap-2 px-3 py-2 rounded-md text-amber-900/80 transition-all hover:bg-amber-900/10"
+              className="absolute top-4 -left-8 flex items-center gap-2 px-3 py-2 rounded-md text-amber-900/80 transition-all hover:bg-amber-900/10"
             >
               <ArrowLeft size={16} />
               <span className="text-sm font-medium">Back to Board</span>
@@ -122,31 +122,28 @@ export default function About() {
             {/* Content */}
             <div className="mt-12 space-y-6">
               <h1 className="text-3xl font-bold text-amber-900/90 text-center">
-                About Apartment 139
+                About onethreenine.net
               </h1>
 
               <div className="space-y-4 text-amber-900/80">
                 <p className="leading-relaxed">
-                  Welcome to our shared digital corkboard! This is where we keep track of everything that matters in apartment 139.
+                  
                 </p>
-
                 <p className="leading-relaxed">
-                  From grocery lists to photos, receipts to event reminders - everything our apartment needs in one whimsical place.
+                A fun whimsical home for the roomates of apartment 139.<br/>Leave us a note :)
                 </p>
 
-                {/* Placeholder for images */}
+                {/* Images */}
                 <div className="grid grid-cols-2 gap-4 my-8">
-                  <div className="aspect-square bg-amber-900/5 rounded-lg flex items-center justify-center text-amber-900/40 text-sm">
-                    Image placeholder
-                  </div>
-                  <div className="aspect-square bg-amber-900/5 rounded-lg flex items-center justify-center text-amber-900/40 text-sm">
-                    Image placeholder
+                  <div className="aspect-square bg-amber-900/5 rounded-lg overflow-hidden">
+                    <img 
+                      src="/assets/images/thumb.png" 
+                      alt="onethreenine preview" 
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 </div>
 
-                <p className="leading-relaxed italic text-amber-900/60 text-center">
-                  Built with ❤️ for the roommates of apartment 139
-                </p>
               </div>
             </div>
           </div>

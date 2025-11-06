@@ -7,9 +7,10 @@ interface PegboardCanvasProps {
   onDeleteItem: (id: string) => void;
   isEditMode: boolean;
   users: User[];
+  currentUserId?: string;
 }
 
-export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, users }: PegboardCanvasProps) {
+export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, users, currentUserId }: PegboardCanvasProps) {
   return (
     <div 
       className="w-full h-full relative overflow-hidden"
@@ -48,8 +49,8 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
         }}
       />
       
-      {/* Render all pinned items (only when logged in) */}
-      {isEditMode && items.map((item) => (
+      {/* Render all pinned items */}
+      {items.map((item) => (
         <PinnedItem
           key={item.id}
           item={item}
@@ -57,6 +58,7 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
           onDelete={onDeleteItem}
           isEditMode={isEditMode}
           users={users}
+          currentUserId={currentUserId}
         />
       ))}
     </div>

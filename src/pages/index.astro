@@ -1,26 +1,10 @@
 ---
+import Layout from '../layouts/Layout.astro';
 import App from '../components/App';
 import '../styles/index.css';
 ---
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>onethreenine</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-    }
-  </style>
-</head>
-<body>
+<Layout title="onethreenine" description="A collaborative digital pegboard for sharing notes, photos, lists, and more">
   <App client:load />
-</body>
-</html>
+</Layout>
 
