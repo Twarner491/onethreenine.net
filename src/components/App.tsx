@@ -40,6 +40,7 @@ export default function App() {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showViewerSettings, setShowViewerSettings] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   
   // Track pending updates to avoid conflicts with real-time sync
@@ -556,6 +557,8 @@ export default function App() {
             isEditMode={!!currentUser && !isViewerMode}
             users={users}
             currentUserId={currentUser?.id}
+            selectedItemId={selectedItemId}
+            onSelectItem={setSelectedItemId}
           />
         
         {/* Show toolbar for everyone, but viewer mode gets modified toolbar */}

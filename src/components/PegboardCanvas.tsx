@@ -10,6 +10,8 @@ interface PegboardCanvasProps {
   isEditMode: boolean;
   users: User[];
   currentUserId?: string;
+  selectedItemId: string | null;
+  onSelectItem: (id: string | null) => void;
 }
 
 // 54.6" displays are typically 16:9 aspect ratio
@@ -17,7 +19,7 @@ const TARGET_ASPECT_RATIO = 16 / 9;
 const WORKSPACE_WIDTH = 1920; // Base width for element positioning
 const WORKSPACE_HEIGHT = 1080; // Base height for element positioning (16:9)
 
-export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, users, currentUserId }: PegboardCanvasProps) {
+export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, users, currentUserId, selectedItemId, onSelectItem }: PegboardCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -132,6 +134,12 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
         <div
           ref={workspaceRef}
           className="absolute"
+          onClick={(e) => {
+            // Deselect when clicking on background (not on an item)
+            if (e.target === e.currentTarget) {
+              onSelectItem(null);
+            }
+          }}
           style={{
             left: `${workspaceOffset.x}px`,
             top: `${workspaceOffset.y}px`,
@@ -153,6 +161,8 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
             users={users}
             currentUserId={currentUserId}
             onMobileEditingChange={handleMobileEditingChange}
+            isSelected={selectedItemId === item.id}
+            onSelect={() => onSelectItem(item.id)}
           />
         ))}
       </div>

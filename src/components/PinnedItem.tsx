@@ -17,6 +17,8 @@ interface PinnedItemProps {
   users: User[];
   currentUserId?: string;
   onMobileEditingChange?: (isEditing: boolean, itemId: string | null) => void;
+  isSelected: boolean;
+  onSelect: () => void;
 }
 
 interface DragItem {
@@ -47,7 +49,7 @@ const maskingTapeTextures = [
   '/assets/images/maskingtape/f08402eb-b275-4034-8d66-4981f93ad679_rw_1200.png',
 ];
 
-export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, currentUserId, onMobileEditingChange }: PinnedItemProps) {
+export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, currentUserId, onMobileEditingChange, isSelected, onSelect }: PinnedItemProps) {
   // Select random masking tape and rotation once and keep it consistent
   const tapeTexture = useMemo(() => 
     maskingTapeTextures[Math.floor(Math.random() * maskingTapeTextures.length)],
@@ -57,6 +59,9 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
     (Math.random() - 0.5) * 10, // Random rotation between -5 and 5 degrees
     []
   );
+  
+  // Only show edit mode when the item is selected AND user has edit permissions
+  const shouldShowEditMode = isEditMode && isSelected;
   
   const [isRotating, setIsRotating] = useState(false);
   const [isMobileEditing, setIsMobileEditing] = useState(false);
@@ -191,21 +196,29 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
     }
   }, [isRotating, handleRotateMove, handleRotateEnd]);
 
-  // Handle mobile editing mode click
+  // Handle item click - for mobile editing or desktop selection
   const handleItemClick = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    if (!isTouchDevice_ || !isEditMode || isMobileEditing) return;
-    
-    // Don't trigger if user just dragged the element
-    if (hasDragged) {
-      setHasDragged(false);
-      return;
-    }
-    
     // Don't trigger on button clicks
     const target = e.target as HTMLElement;
     if (target.tagName === 'BUTTON' || target.closest('button')) {
       return;
     }
+
+    // Don't trigger if user just dragged the element
+    if (hasDragged) {
+      setHasDragged(false);
+      return;
+    }
+
+    // For desktop (non-touch devices), just select the item
+    if (!isTouchDevice_ && isEditMode) {
+      e.stopPropagation();
+      onSelect();
+      return;
+    }
+
+    // For touch devices, enter mobile editing mode
+    if (!isTouchDevice_ || !isEditMode || isMobileEditing) return;
 
     // Enter mobile editing mode
     e.preventDefault();
@@ -223,12 +236,13 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
     // Start everything immediately
     setIsMobileEditing(true);
     onMobileEditingChange?.(true, item.id);
+    onSelect(); // Select the item to enable edit mode
     
     // Trigger animation on next frame
     requestAnimationFrame(() => {
       setIsTransitioning(true);
     });
-  }, [isTouchDevice_, isEditMode, isMobileEditing, hasDragged, onMobileEditingChange, item.id]);
+  }, [isTouchDevice_, isEditMode, isMobileEditing, hasDragged, onMobileEditingChange, item.id, onSelect]);
 
   // Reset transition state when exiting mobile editing
   useEffect(() => {
@@ -270,7 +284,7 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
             content={item.content}
             color={item.color}
             onChange={(content) => onUpdate(item.id, { content })}
-            isEditMode={isEditMode}
+            isEditMode={shouldShowEditMode}
             users={users}
           />
         );
@@ -279,7 +293,7 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
           <PolaroidPhoto 
             content={item.content}
             onChange={(content) => onUpdate(item.id, { content })}
-            isEditMode={isEditMode}
+            isEditMode={shouldShowEditMode}
             userId={currentUserId}
           />
         );
@@ -288,7 +302,7 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
           <ListCard 
             content={item.content}
             onChange={(content) => onUpdate(item.id, { content })}
-            isEditMode={isEditMode}
+            isEditMode={shouldShowEditMode}
             users={users}
           />
         );
@@ -297,7 +311,7 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
           <Receipt 
             content={item.content}
             onChange={(content) => onUpdate(item.id, { content })}
-            isEditMode={isEditMode}
+            isEditMode={shouldShowEditMode}
           />
         );
       case 'menu':
@@ -305,7 +319,7 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
           <EventCard 
             content={item.content}
             onChange={(content) => onUpdate(item.id, { content })}
-            isEditMode={isEditMode}
+            isEditMode={shouldShowEditMode}
           />
         );
       default:
