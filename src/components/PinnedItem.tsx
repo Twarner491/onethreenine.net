@@ -78,10 +78,13 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
       // Get the initial mouse position when drag starts
       const initialClientOffset = monitor.getInitialClientOffset();
       
-      if (initialClientOffset) {
-        // Calculate offset from mouse to element's top-left corner
-        const offsetX = initialClientOffset.x - item.x;
-        const offsetY = initialClientOffset.y - item.y;
+      if (initialClientOffset && itemRef.current) {
+        // Get the actual screen position of the element
+        const rect = itemRef.current.getBoundingClientRect();
+        
+        // Calculate offset from cursor to element's top-left corner in screen coordinates
+        const offsetX = initialClientOffset.x - rect.left;
+        const offsetY = initialClientOffset.y - rect.top;
         
         return { 
           id: item.id, 
@@ -106,18 +109,25 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
     }),
     end: (_draggedItem, monitor) => {
       const clientOffset = monitor.getClientOffset();
-      if (clientOffset && _draggedItem) {
-        // Calculate new position maintaining the original click offset
-        const newX = clientOffset.x - _draggedItem.offsetX;
-        const newY = clientOffset.y - _draggedItem.offsetY;
-        
-        // Check if actually dragged (moved more than 5px)
-        const dragDistance = Math.sqrt(
-          Math.pow(newX - dragStartPosRef.current.x, 2) + 
-          Math.pow(newY - dragStartPosRef.current.y, 2)
-        );
-        setHasDragged(dragDistance > 5);
-        onUpdate(item.id, { x: newX, y: newY });
+      if (clientOffset && _draggedItem && itemRef.current) {
+        // Get the workspace element to calculate the proper position
+        const workspaceElement = itemRef.current.parentElement;
+        if (workspaceElement) {
+          const workspaceRect = workspaceElement.getBoundingClientRect();
+          
+          // Calculate position in workspace coordinates
+          // Subtract workspace offset and the cursor offset from when drag started
+          const newX = clientOffset.x - workspaceRect.left - _draggedItem.offsetX;
+          const newY = clientOffset.y - workspaceRect.top - _draggedItem.offsetY;
+          
+          // Check if actually dragged (moved more than 5px)
+          const dragDistance = Math.sqrt(
+            Math.pow(newX - dragStartPosRef.current.x, 2) + 
+            Math.pow(newY - dragStartPosRef.current.y, 2)
+          );
+          setHasDragged(dragDistance > 5);
+          onUpdate(item.id, { x: newX, y: newY });
+        }
       }
     },
   }), [item.id, item.x, item.y, isEditMode, isRotating, isMobileEditing, onUpdate]);
@@ -303,6 +313,30 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
     }
   };
 
+  // Calculate optimal scale to fit element + buttons in viewport
+  const calculateOptimalScale = () => {
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Estimate element dimensions (most items are around 250-300px wide)
+    const estimatedWidth = 300;
+    const estimatedHeight = 350;
+    
+    // Button toolbar height (including spacing)
+    const toolbarHeight = 80;
+    
+    // Padding from screen edges
+    const padding = 40;
+    
+    // Calculate max scale that fits within viewport
+    const maxWidthScale = (viewportWidth - padding * 2) / estimatedWidth;
+    const maxHeightScale = (viewportHeight - padding * 2 - toolbarHeight) / estimatedHeight;
+    
+    // Use smaller of the two, but cap between 0.7 and 1.2
+    const optimalScale = Math.min(maxWidthScale, maxHeightScale);
+    return Math.max(0.7, Math.min(1.2, optimalScale));
+  };
+
   // Render mobile editing view in a portal at document root
   const renderMobileEditingPortal = () => {
     if (!isMobileEditing) return null;
@@ -318,8 +352,9 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
         
         return `translate(calc(-50% + ${translateX}px), calc(-50% + ${translateY}px)) scale(1) rotate(${item.rotation || 0}deg)`;
       }
-      // End at center, scaled and straightened
-      return 'translate(-50%, -50%) scale(1.5) rotate(0deg)';
+      // End at center with optimal scale, straightened
+      const scale = calculateOptimalScale();
+      return `translate(-50%, -50%) scale(${scale}) rotate(0deg)`;
     };
     
     return createPortal(
@@ -333,6 +368,8 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
           transform: getTransform(),
           zIndex: 10000,
           transition: 'transform 0.3s ease-out',
+          pointerEvents: 'auto',
+          willChange: 'transform',
         }}
       >
         {/* Masking tape */}
@@ -357,19 +394,28 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
         {renderContent()}
         
         {/* Mobile editing mode: close button and delete button */}
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex gap-2">
+        <div 
+          className="absolute -bottom-24 left-1/2 -translate-x-1/2 flex gap-4"
+          style={{
+            // Scale buttons inversely to maintain consistent size
+            transform: `translateX(-50%) scale(${1 / calculateOptimalScale()})`,
+            transformOrigin: 'center top',
+          }}
+        >
           <button
             onClick={() => {
               setIsMobileEditing(false);
               onMobileEditingChange?.(false, null);
             }}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg shadow-lg hover:bg-green-700 active:scale-95 font-medium text-sm flex items-center gap-2"
+            className="px-5 py-3 bg-green-600 text-white rounded-lg shadow-lg hover:bg-green-700 active:scale-95 font-semibold text-base flex items-center gap-2 min-w-[100px] justify-center"
             style={{ 
               pointerEvents: 'auto',
-              zIndex: 50
+              zIndex: 50,
+              minHeight: '44px', // iOS touch target size
             }}
           >
-            ✓ Done
+            <span>✓</span>
+            <span>Done</span>
           </button>
           <button
             onClick={() => {
@@ -377,13 +423,14 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
               onMobileEditingChange?.(false, null);
               onDelete(item.id);
             }}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg shadow-lg hover:bg-red-700 active:scale-95 font-medium text-sm flex items-center gap-2"
+            className="px-5 py-3 bg-red-600 text-white rounded-lg shadow-lg hover:bg-red-700 active:scale-95 font-semibold text-base flex items-center gap-2 min-w-[110px] justify-center"
             style={{ 
               pointerEvents: 'auto',
-              zIndex: 50
+              zIndex: 50,
+              minHeight: '44px', // iOS touch target size
             }}
           >
-            <Trash2 size={14} strokeWidth={2.5} />
+            <Trash2 size={16} strokeWidth={2.5} />
             Delete
           </button>
         </div>
@@ -405,7 +452,7 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
         }}
         className="absolute group"
         onClick={handleItemClick}
-        onTouchEnd={handleItemClick}
+        onTouchStart={handleItemClick}
         style={{
           left: item.x,
           top: item.y,

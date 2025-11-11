@@ -32,8 +32,32 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isToolsExpanded, setIsToolsExpanded] = useState(false);
   const [loginName, setLoginName] = useState('');
-  const [position, setPosition] = useState({ x: 32, y: typeof window !== 'undefined' ? window.innerHeight - 200 : 500 });
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
+  
+  // Calculate initial position based on viewport - mobile friendly
+  const getInitialPosition = () => {
+    if (typeof window === 'undefined') return { x: 32, y: 500 };
+    
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+      // On mobile, position at bottom center for easy thumb access
+      return { x: window.innerWidth / 2 - 90, y: window.innerHeight - 150 };
+    }
+    return { x: 32, y: window.innerHeight - 200 };
+  };
+  
+  const [position, setPosition] = useState(getInitialPosition());
   const [rotation, setRotation] = useState(-2);
+  
+  // Track window resize for mobile detection
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Load position and rotation from localStorage
   useEffect(() => {
@@ -201,13 +225,16 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
       {/* Main toolbar as draggable post-it note */}
       <div
         ref={drag as unknown as React.Ref<HTMLDivElement>}
-        className="fixed z-50"
+        className="fixed z-50 touch-none"
         style={{
           left: position.x,
           top: position.y,
-          transform: `rotate(${rotation}deg)`,
+          transform: `rotate(${rotation}deg) scale(${isMobile ? 0.5 : 1})`,
+          transformOrigin: 'top left',
           cursor: isDragging ? 'grabbing' : 'move',
           opacity: isDragging ? 0.8 : 1,
+          // Ensure toolbar stays within viewport bounds
+          maxWidth: 'calc(100vw - 40px)',
         }}
       >
         {/* Masking tape */}
@@ -245,21 +272,23 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
         >
           {/* Top row - Plus button (left) and User section (right) - ALWAYS visible */}
           <div className="flex items-center justify-between px-3 py-2">
-            {/* Plus button - left aligned */}
+            {/* Plus button - left aligned - Enhanced for mobile touch */}
             <button
               onClick={() => setIsToolsExpanded(!isToolsExpanded)}
-              className="w-8 h-8 rounded-md flex items-center justify-center text-amber-800/80 transition-all hover:bg-amber-900/10 shrink-0"
+              className="w-10 h-10 rounded-md flex items-center justify-center text-amber-800/80 transition-all hover:bg-amber-900/10 active:bg-amber-900/20 shrink-0"
+              style={{ minWidth: '40px', minHeight: '40px' }}
             >
-              {isToolsExpanded ? <X size={16} /> : <Plus size={16} />}
+              {isToolsExpanded ? <X size={18} /> : <Plus size={18} />}
             </button>
 
-            {/* User section - right aligned */}
+            {/* User section - right aligned - Enhanced for mobile touch */}
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-md text-amber-900/90 transition-all hover:bg-amber-900/10 min-w-0"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-md text-amber-900/90 transition-all hover:bg-amber-900/10 active:bg-amber-900/20 min-w-0"
+              style={{ minHeight: '40px' }}
             >
               <span className="text-xs max-w-20 truncate">{currentUser.name}</span>
-              <Settings size={12} className="opacity-70 shrink-0" />
+              <Settings size={14} className="opacity-70 shrink-0" />
             </button>
           </div>
           
@@ -267,18 +296,19 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
           <div 
             className="overflow-hidden transition-all duration-300"
             style={{
-              maxHeight: isToolsExpanded ? '210px' : '0px',
+              maxHeight: isToolsExpanded ? '250px' : '0px',
             }}
           >
-            <div className="px-3 pb-3 pt-1 space-y-1">
+            <div className="px-3 pb-3 pt-1 space-y-1.5 max-h-[calc(100vh-200px)] overflow-y-auto">
               {tools.map((tool) => (
                 <button
                   key={tool.type}
                   onClick={() => handleAddItem(tool.type)}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-amber-800/80 transition-all hover:bg-amber-900/10 text-left"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-amber-800/80 transition-all hover:bg-amber-900/10 active:bg-amber-900/20 text-left"
+                  style={{ minHeight: '44px' }}
                 >
-                  <tool.icon size={14} />
-                  <span className="text-sm">{tool.label}</span>
+                  <tool.icon size={16} />
+                  <span className="text-sm font-medium">{tool.label}</span>
                 </button>
               ))}
             </div>

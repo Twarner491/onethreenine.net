@@ -71,9 +71,9 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
       {/* Mobile editing backdrop - covers entire viewport */}
       {isMobileEditing && (
         <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm pointer-events-none"
           style={{ 
-            zIndex: 9998,
+            zIndex: 9999,
             animation: 'fadeIn 0.25s ease-out',
           }}
         />
