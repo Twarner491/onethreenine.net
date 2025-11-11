@@ -63,8 +63,20 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
   useEffect(() => {
     const savedPosition = localStorage.getItem('toolbar-position');
     const savedRotation = localStorage.getItem('toolbar-rotation');
+    const savedViewport = localStorage.getItem('toolbar-viewport');
+    
     if (savedPosition && currentUser) {
-      setPosition(JSON.parse(savedPosition));
+      const parsed = JSON.parse(savedPosition);
+      const wasMobile = savedViewport === 'mobile';
+      const isCurrentlyMobile = window.innerWidth < 768;
+      
+      // If viewport type changed (mobile<->desktop), reset to initial position
+      // This prevents toolbar from being off-screen when switching devices
+      if (wasMobile !== isCurrentlyMobile) {
+        setPosition(getInitialPosition());
+      } else {
+        setPosition(parsed);
+      }
     }
     if (savedRotation && currentUser) {
       setRotation(parseFloat(savedRotation));
@@ -75,8 +87,10 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('toolbar-position', JSON.stringify(position));
+      // Save viewport type to detect when user switches between mobile/desktop
+      localStorage.setItem('toolbar-viewport', isMobile ? 'mobile' : 'desktop');
     }
-  }, [position, currentUser]);
+  }, [position, currentUser, isMobile]);
 
   // Save rotation to localStorage
   useEffect(() => {
