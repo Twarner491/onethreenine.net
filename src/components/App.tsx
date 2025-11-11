@@ -1,11 +1,13 @@
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { TouchBackend } from 'react-dnd-touch-backend';
 import { PegboardCanvas } from './PegboardCanvas';
 import { Toolbar } from './Toolbar';
 import { Toaster } from './ui/sonner';
 import { toast } from 'sonner';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { BoardItem, User } from './types';
+import { OrientationPrompt } from './OrientationPrompt';
 import { 
   supabase, 
   getAllBoardItems, 
@@ -26,11 +28,18 @@ function debounce<T extends (...args: any[]) => void>(func: T, wait: number): T 
   }) as T;
 }
 
+// Detect if touch device (safe for SSR)
+const isTouchDevice = () => {
+  if (typeof window === 'undefined') return false;
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+};
+
 export default function App() {
   const [items, setItems] = useState<BoardItem[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showViewerSettings, setShowViewerSettings] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
   
   // Track pending updates to avoid conflicts with real-time sync
@@ -39,6 +48,10 @@ export default function App() {
   
   // Check if current user is in viewer mode
   const isViewerMode = currentUser?.name.toLowerCase() === 'monalisa';
+
+  // Select appropriate backend for DnD
+  const dndBackend = isTouchDevice() ? TouchBackend : HTML5Backend;
+  const dndOptions = isTouchDevice() ? { enableMouseEvents: true } : undefined;
 
   // Load initial data from Supabase
   useEffect(() => {
@@ -67,11 +80,11 @@ export default function App() {
     }
   }, []);
 
-  // Keyboard shortcut for viewer mode (Escape)
+  // Keyboard shortcut for viewer mode (Escape to toggle settings)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isViewerMode) {
-        // Handle escape key if needed
+        setShowViewerSettings(prev => !prev);
       }
     };
 
@@ -520,31 +533,30 @@ export default function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem('pegboard-user');
+    setShowViewerSettings(false);
     toast.success('Logged out successfully');
   };
 
   if (isLoading) {
     return (
       <div className="w-screen h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-600 mx-auto mb-4"></div>
-          <p className="text-lg text-gray-700">Loading corkboard...</p>
-        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-300 border-t-amber-600"></div>
       </div>
     );
   }
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="w-screen h-screen overflow-hidden">
-        <PegboardCanvas 
-          items={items}
-          onUpdateItem={handleUpdateItem}
-          onDeleteItem={handleDeleteItem}
-          isEditMode={!!currentUser && !isViewerMode}
-          users={users}
-          currentUserId={currentUser?.id}
-        />
+    <>
+      <DndProvider backend={dndBackend} options={dndOptions}>
+        <div className="w-screen h-screen overflow-hidden">
+          <PegboardCanvas 
+            items={items}
+            onUpdateItem={handleUpdateItem}
+            onDeleteItem={handleDeleteItem}
+            isEditMode={!!currentUser && !isViewerMode}
+            users={users}
+            currentUserId={currentUser?.id}
+          />
         
         {/* Show toolbar for everyone, but viewer mode gets modified toolbar */}
         <Toolbar 
@@ -555,8 +567,109 @@ export default function App() {
           isViewerMode={isViewerMode}
         />
 
+        {/* Viewer mode: ESC hint and settings dialog */}
+        {isViewerMode && (
+          <>
+            {/* Subtle ESC hint */}
+            <div className="fixed bottom-4 right-4 text-xs text-white/50 hover:text-white/80 transition-colors pointer-events-none">
+              Press ESC for settings
+            </div>
+
+            {/* Settings dialog */}
+            {showViewerSettings && (
+              <>
+                {/* Backdrop */}
+                <div 
+                  className="fixed inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in-0"
+                  style={{ zIndex: 999998 }}
+                  onClick={() => setShowViewerSettings(false)}
+                />
+                
+                {/* Settings Post-it */}
+                <div 
+                  className="fixed animate-in zoom-in-95 fade-in-0"
+                  style={{ 
+                    zIndex: 999999,
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%) rotate(-1deg)',
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Masking tape */}
+                  <div 
+                    className="absolute top-0 left-1/2 z-10 pointer-events-none"
+                    style={{
+                      width: '80px',
+                      height: '35px',
+                      transform: `translateX(-50%) translateY(-18px) rotate(3deg)`,
+                    }}
+                  >
+                    <img 
+                      src="/assets/images/maskingtape/2ef85379-640c-4e19-9ed3-8ba8485914ae_rw_3840.png"
+                      alt="masking tape"
+                      className="w-full h-full object-cover"
+                      style={{
+                        filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
+                      }}
+                    />
+                  </div>
+
+                  <div 
+                    className="relative"
+                    style={{
+                      background: '#fef3c7',
+                      borderRadius: '2px',
+                      boxShadow: `
+                        0 4px 8px rgba(0, 0, 0, 0.15),
+                        0 8px 20px rgba(0, 0, 0, 0.1),
+                        inset 0 -1px 2px rgba(0, 0, 0, 0.05)
+                      `,
+                      width: '400px',
+                      padding: '48px 64px',
+                    }}
+                  >
+                    <div className="space-y-8">
+                      {/* Viewer Mode Info */}
+                      <div className="space-y-3 text-center">
+                        <h3 className="font-medium text-lg text-amber-900/90">👁️ Viewer Mode</h3>
+                        <div className="text-sm text-amber-900/70">
+                          Signed in as <span className="font-medium">{currentUser?.name}</span>
+                        </div>
+                        <div className="text-xs text-amber-900/60">
+                          Read-only display • Press ESC to close
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setShowViewerSettings(false)}
+                          className="flex-1 px-4 py-3.5 rounded-lg bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all hover:bg-amber-900/20 hover:border-amber-900/30 font-medium text-sm"
+                        >
+                          Close
+                        </button>
+                        <button
+                          onClick={handleLogout}
+                          className="flex-1 px-4 py-3.5 rounded-lg bg-red-900/10 text-red-900 border border-red-900/20 transition-all hover:bg-red-900/20 hover:border-red-900/30 font-medium text-sm"
+                        >
+                          Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </>
+        )}
+
         <Toaster />
-      </div>
-    </DndProvider>
+        </div>
+      </DndProvider>
+      
+      {/* Orientation prompt - render last to be on top */}
+      <OrientationPrompt />
+    </>
   );
 }

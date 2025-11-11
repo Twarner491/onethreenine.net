@@ -92,6 +92,7 @@ export function EventCard({ content, onChange, isEditMode }: EventCardProps) {
               value={content.title}
               onChange={(e) => onChange({ ...content, title: e.target.value })}
               placeholder="Event Name"
+              spellCheck={false}
               className="text-center border-none !bg-transparent px-0 focus-visible:ring-0 focus-visible:ring-offset-0 mb-2"
               style={{
                 fontFamily: 'Outfit, sans-serif'
@@ -101,6 +102,7 @@ export function EventCard({ content, onChange, isEditMode }: EventCardProps) {
               value={content.date || ''}
               onChange={(e) => onChange({ ...content, date: e.target.value })}
               placeholder="Date (optional)"
+              spellCheck={false}
               className="text-center border-none !bg-transparent px-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
               style={{
                 fontFamily: 'Inter, sans-serif'
@@ -139,6 +141,7 @@ export function EventCard({ content, onChange, isEditMode }: EventCardProps) {
                     value={item.name}
                     onChange={(e) => handleUpdateItem(index, 'name', e.target.value)}
                     placeholder="Item name"
+                    spellCheck={false}
                     className="border-none !bg-white/50 px-2 h-auto py-1 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
                     style={{ fontFamily: 'Outfit, sans-serif' }}
                   />
@@ -146,6 +149,7 @@ export function EventCard({ content, onChange, isEditMode }: EventCardProps) {
                     value={item.description}
                     onChange={(e) => handleUpdateItem(index, 'description', e.target.value)}
                     placeholder="Description"
+                    spellCheck={false}
                     className="border-none !bg-white/50 px-2 h-auto py-1 text-xs focus-visible:ring-0 focus-visible:ring-offset-0 resize-none min-h-0"
                     rows={2}
                     style={{ fontFamily: 'Inter, sans-serif' }}

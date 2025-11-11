@@ -98,6 +98,7 @@ export function Receipt({ content, onChange, isEditMode }: ReceiptProps) {
             value={content.store}
             onChange={(e) => onChange({ ...content, store: e.target.value })}
             placeholder="Store Name"
+            spellCheck={false}
             className="text-center border-none !bg-transparent px-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           />
         ) : (
@@ -116,6 +117,7 @@ export function Receipt({ content, onChange, isEditMode }: ReceiptProps) {
                   value={item.name}
                   onChange={(e) => handleUpdateItem(index, 'name', e.target.value)}
                   placeholder="Item"
+                  spellCheck={false}
                   className="flex-1 border-none !bg-transparent px-1 h-auto py-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
                 <div className="flex items-center gap-1">
@@ -125,6 +127,7 @@ export function Receipt({ content, onChange, isEditMode }: ReceiptProps) {
                     step="0.01"
                     value={item.price}
                     onChange={(e) => handleUpdateItem(index, 'price', parseFloat(e.target.value) || 0)}
+                    spellCheck={false}
                     className="w-16 border-none !bg-transparent px-1 h-auto py-0 text-sm text-right focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                   <button

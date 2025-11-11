@@ -135,6 +135,7 @@ export function PostItNote({ content, color = '#fef3c7', onChange, isEditMode, u
             value={content.text}
             onChange={handleTextChange}
             placeholder="Write a note..."
+            spellCheck={false}
             className="w-full h-full bg-transparent border-none resize-none focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
             style={{ 
               fontFamily: 'Inter, sans-serif',

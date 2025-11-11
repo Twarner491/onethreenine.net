@@ -176,6 +176,7 @@ export function PolaroidPhoto({ content, onChange, isEditMode, userId }: Polaroi
           value={content.caption}
           onChange={(e) => onChange({ ...content, caption: e.target.value })}
           placeholder="Add a caption..."
+          spellCheck={false}
           className="text-center border-none bg-transparent px-0 focus-visible:ring-0 focus-visible:ring-offset-0"
           style={{ 
             fontFamily: 'Inter, sans-serif',

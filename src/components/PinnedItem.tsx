@@ -6,6 +6,7 @@ import { ListCard } from './items/ListCard';
 import { Receipt } from './items/Receipt';
 import { EventCard } from './items/EventCard';
 import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Trash2 } from 'lucide-react';
 
 interface PinnedItemProps {
@@ -15,7 +16,22 @@ interface PinnedItemProps {
   isEditMode: boolean;
   users: User[];
   currentUserId?: string;
+  onMobileEditingChange?: (isEditing: boolean, itemId: string | null) => void;
 }
+
+interface DragItem {
+  id: string;
+  x: number;
+  y: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+// Detect if touch device (safe for SSR)
+const isTouchDevice = () => {
+  if (typeof window === 'undefined') return false;
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+};
 
 const maskingTapeTextures = [
   '/assets/images/maskingtape/10c87e82-99cf-4df0-b47b-8f650d4b21e9_rw_1920.png',
@@ -31,7 +47,7 @@ const maskingTapeTextures = [
   '/assets/images/maskingtape/f08402eb-b275-4034-8d66-4981f93ad679_rw_1200.png',
 ];
 
-export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, currentUserId }: PinnedItemProps) {
+export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, currentUserId, onMobileEditingChange }: PinnedItemProps) {
   // Select random masking tape and rotation once and keep it consistent
   const tapeTexture = useMemo(() => 
     maskingTapeTextures[Math.floor(Math.random() * maskingTapeTextures.length)],
@@ -43,24 +59,75 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
   );
   
   const [isRotating, setIsRotating] = useState(false);
+  const [isMobileEditing, setIsMobileEditing] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [hasDragged, setHasDragged] = useState(false);
+  const [startPosition, setStartPosition] = useState({ x: 0, y: 0 });
   const itemRef = useRef<HTMLDivElement>(null);
   const startAngleRef = useRef(0);
   const startRotationRef = useRef(0);
+  const dragStartPosRef = useRef({ x: 0, y: 0 });
+  const isTouchDevice_ = useMemo(() => isTouchDevice(), []);
   
-  const [{ isDragging }, drag] = useDrag(() => ({
+  const [{ isDragging }, drag, preview] = useDrag<DragItem, unknown, { isDragging: boolean }>(() => ({
     type: 'board-item',
-    item: { id: item.id },
-    canDrag: isEditMode && !isRotating,
+    item: (monitor) => {
+      setHasDragged(false);
+      dragStartPosRef.current = { x: item.x, y: item.y };
+      
+      // Get the initial mouse position when drag starts
+      const initialClientOffset = monitor.getInitialClientOffset();
+      
+      if (initialClientOffset) {
+        // Calculate offset from mouse to element's top-left corner
+        const offsetX = initialClientOffset.x - item.x;
+        const offsetY = initialClientOffset.y - item.y;
+        
+        return { 
+          id: item.id, 
+          x: item.x, 
+          y: item.y,
+          offsetX,
+          offsetY,
+        };
+      }
+      
+      return { 
+        id: item.id, 
+        x: item.x, 
+        y: item.y,
+        offsetX: 0,
+        offsetY: 0,
+      };
+    },
+    canDrag: isEditMode && !isRotating && !isMobileEditing,
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
     end: (_draggedItem, monitor) => {
-      const offset = monitor.getSourceClientOffset();
-      if (offset) {
-        onUpdate(item.id, { x: offset.x, y: offset.y });
+      const clientOffset = monitor.getClientOffset();
+      if (clientOffset && _draggedItem) {
+        // Calculate new position maintaining the original click offset
+        const newX = clientOffset.x - _draggedItem.offsetX;
+        const newY = clientOffset.y - _draggedItem.offsetY;
+        
+        // Check if actually dragged (moved more than 5px)
+        const dragDistance = Math.sqrt(
+          Math.pow(newX - dragStartPosRef.current.x, 2) + 
+          Math.pow(newY - dragStartPosRef.current.y, 2)
+        );
+        setHasDragged(dragDistance > 5);
+        onUpdate(item.id, { x: newX, y: newY });
       }
     },
-  }), [item.id, isEditMode, isRotating]);
+  }), [item.id, item.x, item.y, isEditMode, isRotating, isMobileEditing, onUpdate]);
+
+  // Use empty image as drag preview to show custom preview
+  useEffect(() => {
+    const img = new Image();
+    img.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+    preview(img, { captureDraggingState: false });
+  }, [preview]);
 
   const getCenter = useCallback(() => {
     if (!itemRef.current) return { x: 0, y: 0 };
@@ -114,6 +181,77 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
     }
   }, [isRotating, handleRotateMove, handleRotateEnd]);
 
+  // Handle mobile editing mode click
+  const handleItemClick = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if (!isTouchDevice_ || !isEditMode || isMobileEditing) return;
+    
+    // Don't trigger if user just dragged the element
+    if (hasDragged) {
+      setHasDragged(false);
+      return;
+    }
+    
+    // Don't trigger on button clicks
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'BUTTON' || target.closest('button')) {
+      return;
+    }
+
+    // Enter mobile editing mode
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Capture the current position for smooth transition
+    if (itemRef.current) {
+      const rect = itemRef.current.getBoundingClientRect();
+      setStartPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      });
+    }
+    
+    // Start everything immediately
+    setIsMobileEditing(true);
+    onMobileEditingChange?.(true, item.id);
+    
+    // Trigger animation on next frame
+    requestAnimationFrame(() => {
+      setIsTransitioning(true);
+    });
+  }, [isTouchDevice_, isEditMode, isMobileEditing, hasDragged, onMobileEditingChange, item.id]);
+
+  // Reset transition state when exiting mobile editing
+  useEffect(() => {
+    if (!isMobileEditing) {
+      setIsTransitioning(false);
+    }
+  }, [isMobileEditing]);
+
+  // Handle click outside to exit mobile editing
+  useEffect(() => {
+    if (!isMobileEditing) return;
+
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      const portalElement = document.querySelector('[data-mobile-editing-portal]');
+      if (portalElement && !portalElement.contains(e.target as Node)) {
+        setIsMobileEditing(false);
+        onMobileEditingChange?.(false, null);
+      }
+    };
+
+    // Add small delay to prevent immediate closing
+    const timer = setTimeout(() => {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isMobileEditing, onMobileEditingChange]);
+
   const renderContent = () => {
     switch (item.type) {
       case 'note':
@@ -165,22 +303,120 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
     }
   };
 
+  // Render mobile editing view in a portal at document root
+  const renderMobileEditingPortal = () => {
+    if (!isMobileEditing) return null;
+    
+    // Calculate transform for smooth transition
+    const getTransform = () => {
+      if (!isTransitioning) {
+        // Start from original position
+        const screenCenterX = window.innerWidth / 2;
+        const screenCenterY = window.innerHeight / 2;
+        const translateX = startPosition.x - screenCenterX;
+        const translateY = startPosition.y - screenCenterY;
+        
+        return `translate(calc(-50% + ${translateX}px), calc(-50% + ${translateY}px)) scale(1) rotate(${item.rotation || 0}deg)`;
+      }
+      // End at center, scaled and straightened
+      return 'translate(-50%, -50%) scale(1.5) rotate(0deg)';
+    };
+    
+    return createPortal(
+      <div
+        data-mobile-editing-portal
+        className="group"
+        style={{
+          position: 'fixed',
+          left: '50%',
+          top: '50%',
+          transform: getTransform(),
+          zIndex: 10000,
+          transition: 'transform 0.3s ease-out',
+        }}
+      >
+        {/* Masking tape */}
+        <div 
+          className="absolute top-0 left-1/2 z-10 pointer-events-none"
+          style={{
+            width: '80px',
+            height: '35px',
+            transform: `translateX(-50%) translateX(8px) translateY(-18px) rotate(${tapeRotation}deg)`,
+          }}
+        >
+          <img 
+            src={tapeTexture}
+            alt="masking tape"
+            className="w-full h-full object-cover"
+            style={{
+              filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
+            }}
+          />
+        </div>
+        
+        {renderContent()}
+        
+        {/* Mobile editing mode: close button and delete button */}
+        <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex gap-2">
+          <button
+            onClick={() => {
+              setIsMobileEditing(false);
+              onMobileEditingChange?.(false, null);
+            }}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg shadow-lg hover:bg-green-700 active:scale-95 font-medium text-sm flex items-center gap-2"
+            style={{ 
+              pointerEvents: 'auto',
+              zIndex: 50
+            }}
+          >
+            ✓ Done
+          </button>
+          <button
+            onClick={() => {
+              setIsMobileEditing(false);
+              onMobileEditingChange?.(false, null);
+              onDelete(item.id);
+            }}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg shadow-lg hover:bg-red-700 active:scale-95 font-medium text-sm flex items-center gap-2"
+            style={{ 
+              pointerEvents: 'auto',
+              zIndex: 50
+            }}
+          >
+            <Trash2 size={14} strokeWidth={2.5} />
+            Delete
+          </button>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
   return (
-    <div
-      ref={(node) => {
-        drag(node);
-        itemRef.current = node;
-      }}
-      className="absolute group"
-      style={{
-        left: item.x,
-        top: item.y,
-        transform: `rotate(${item.rotation || 0}deg)`,
-        cursor: isEditMode && !isRotating ? 'move' : 'default',
-        opacity: isDragging ? 0.5 : 1,
-        zIndex: isDragging || isRotating ? 1000 : 1,
-      }}
-    >
+    <>
+      {renderMobileEditingPortal()}
+      
+      <div
+        ref={(node) => {
+          if (!isMobileEditing) {
+            drag(node);
+            itemRef.current = node;
+          }
+        }}
+        className="absolute group"
+        onClick={handleItemClick}
+        onTouchEnd={handleItemClick}
+        style={{
+          left: item.x,
+          top: item.y,
+          transform: `rotate(${item.rotation || 0}deg)`,
+          cursor: isEditMode && !isRotating ? 'move' : 'default',
+          opacity: isDragging ? 0.2 : (isMobileEditing ? 0 : 1),
+          zIndex: isDragging || isRotating ? 1000 : 1,
+          transition: isDragging ? 'none' : 'opacity 0.3s ease-out',
+          pointerEvents: (isDragging || isMobileEditing) ? 'none' : 'auto',
+        }}
+      >
       {/* Masking tape */}
       <div 
         className="absolute top-0 left-1/2 z-10 pointer-events-none"
@@ -227,22 +463,23 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
         </button>
       )}
       
-      {renderContent()}
-      
-      {/* Delete button - renders last to be on top */}
-      {isEditMode && (
-        <button
-          onClick={() => onDelete(item.id)}
-          className="absolute -top-2 -right-2 w-7 h-7 bg-gray-100 text-gray-600 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-md hover:shadow-lg hover:bg-red-100 hover:text-red-600 hover:scale-110 active:scale-95 flex items-center justify-center border border-gray-200"
-          style={{ 
-            pointerEvents: 'auto',
-            zIndex: 50
-          }}
-          title="Delete"
-        >
-          <Trash2 size={13} strokeWidth={2.5} />
-        </button>
-      )}
-    </div>
+        {renderContent()}
+        
+        {/* Delete button - renders last to be on top */}
+        {isEditMode && (
+          <button
+            onClick={() => onDelete(item.id)}
+            className="absolute -top-2 -right-2 w-7 h-7 bg-gray-100 text-gray-600 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-md hover:shadow-lg hover:bg-red-100 hover:text-red-600 hover:scale-110 active:scale-95 flex items-center justify-center border border-gray-200"
+            style={{ 
+              pointerEvents: 'auto',
+              zIndex: 50
+            }}
+            title="Delete"
+          >
+            <Trash2 size={13} strokeWidth={2.5} />
+          </button>
+        )}
+      </div>
+    </>
   );
 }

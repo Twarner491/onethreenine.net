@@ -129,6 +129,7 @@ export function ListCard({ content, onChange, isEditMode, users }: ListCardProps
         <Input
           value={content.title}
           onChange={(e) => onChange({ ...content, title: e.target.value })}
+          spellCheck={false}
           className="mb-4 border-none !bg-transparent px-0 focus-visible:ring-0 focus-visible:ring-offset-0 relative z-10"
           style={{
             fontFamily: 'Outfit, sans-serif'
@@ -162,6 +163,7 @@ export function ListCard({ content, onChange, isEditMode, users }: ListCardProps
                 value={item.text}
                 onChange={(e) => handleUpdateItemText(index, e.target.value)}
                 placeholder="List item"
+                spellCheck={false}
                 className="flex-1 border-none !bg-transparent px-1 h-auto py-1 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
                 style={{
                   textDecoration: item.checked ? 'line-through' : 'none',
