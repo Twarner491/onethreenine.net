@@ -130,14 +130,14 @@ export default function About() {
                   
                 </p>
                 <p className="leading-relaxed">
-                A fun whimsical home for the roomates of apartment 139.<br/>Leave us a note :)
+                A web accessible corkboard broadcast on our apartment's wall.<br/>Leave us a note :)
                 </p>
 
                 {/* Images */}
                 <div className="grid grid-cols-2 gap-4 my-8">
                   <div className="aspect-square bg-amber-900/5 rounded-lg overflow-hidden">
                     <img 
-                      src="/assets/images/thumb.png" 
+                      src="/assets/images/thumb.jpg" 
                       alt="onethreenine preview" 
                       className="w-full h-full object-cover"
                     />
