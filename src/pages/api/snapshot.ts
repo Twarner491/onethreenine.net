@@ -4,24 +4,16 @@ import { createSnapshot } from '../../lib/supabase';
 /**
  * API endpoint to create a snapshot of the current board state
  * 
- * Usage:
- * POST /api/snapshot
+ * ⚠️ NOTE: This endpoint does NOT work on GitHub Pages (static hosting)
+ * Astro API routes require a server adapter (Node, Vercel, Netlify, etc.)
  * 
- * Optional body:
- * {
- *   "date": "2024-01-15"  // Optional: defaults to today
- * }
+ * Automated daily snapshots are instead handled by GitHub Actions workflow:
+ * .github/workflows/daily-snapshot.yml
  * 
- * For automated daily snapshots, you can:
- * 1. Use a cron service (like cron-job.org or EasyCron) to call this endpoint daily
- * 2. Use GitHub Actions with a scheduled workflow
- * 3. Use Vercel Cron (if deployed on Vercel)
- * 4. Use Supabase Edge Functions with pg_cron
+ * The workflow calls Supabase RPC function directly and runs daily at 11:59 PM UTC.
+ * It can also be triggered manually from the Actions tab in GitHub.
  * 
- * Example cron setup (cron-job.org):
- * - URL: https://onethreenine.net/api/snapshot
- * - Method: POST
- * - Schedule: Daily at 11:59 PM
+ * This file is kept for reference/future use if hosting changes to SSR.
  */
 export const POST: APIRoute = async ({ request }) => {
   try {
@@ -94,4 +86,5 @@ export const GET: APIRoute = async () => {
     }
   );
 };
+
 

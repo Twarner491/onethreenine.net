@@ -1,0 +1,42 @@
+name: Daily Snapshot
+
+on:
+  schedule:
+    # Run every day at 11:59 PM UTC (adjust timezone as needed)
+    - cron: '59 23 * * *'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  create-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Daily Snapshot via Supabase RPC
+        env:
+          SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          TODAY=$(date -u +%Y-%m-%d)
+          echo "Creating snapshot for date: $TODAY"
+          
+          # Call Supabase RPC function directly
+          response=$(curl -X POST \
+            "${SUPABASE_URL}/rest/v1/rpc/create_daily_snapshot" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "Content-Type: application/json" \
+            -w "\n%{http_code}" \
+            -s)
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "Response body: $body"
+          echo "HTTP status: $http_code"
+          
+          if [ "$http_code" -ne 200 ] && [ "$http_code" -ne 204 ]; then
+            echo "❌ Error: Snapshot creation failed with status $http_code"
+            exit 1
+          fi
+          
+          echo "✅ Snapshot created successfully!"
+
