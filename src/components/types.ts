@@ -21,3 +21,12 @@ export interface User {
   updated_at?: string;
 }
 
+export interface BoardSnapshot {
+  id: string;
+  snapshot_date: string;
+  items_data: BoardItem[];
+  item_count: number;
+  created_at: string;
+  updated_at: string;
+}
+

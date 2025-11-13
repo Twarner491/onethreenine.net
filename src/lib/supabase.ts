@@ -170,3 +170,106 @@ export async function getAllUsers() {
   return data;
 }
 
+// ============================================
+// SNAPSHOT MANAGEMENT FUNCTIONS
+// ============================================
+
+// Helper function to create a snapshot of the current board state
+export async function createSnapshot(snapshotDate?: string) {
+  const dateToUse = snapshotDate || new Date().toISOString().split('T')[0];
+  
+  // Get all current board items
+  const items = await getAllBoardItems();
+  
+  // Create snapshot
+  const { data, error } = await supabase
+    .from('board_snapshots')
+    .upsert({
+      snapshot_date: dateToUse,
+      items_data: items,
+      item_count: items.length,
+    }, {
+      onConflict: 'snapshot_date'
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating snapshot:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+// Helper function to get all snapshots
+export async function getAllSnapshots() {
+  const { data, error } = await supabase
+    .from('board_snapshots')
+    .select('*')
+    .order('snapshot_date', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching snapshots:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+// Helper function to get a specific snapshot by date
+export async function getSnapshotByDate(date: string) {
+  const { data, error } = await supabase
+    .from('board_snapshots')
+    .select('*')
+    .eq('snapshot_date', date)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching snapshot:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+// Helper function to get snapshots within a date range
+export async function getSnapshotsByDateRange(startDate: string, endDate: string) {
+  const { data, error } = await supabase
+    .from('board_snapshots')
+    .select('*')
+    .gte('snapshot_date', startDate)
+    .lte('snapshot_date', endDate)
+    .order('snapshot_date', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching snapshots by date range:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+// Helper function to delete a snapshot
+export async function deleteSnapshot(id: string) {
+  const { error } = await supabase
+    .from('board_snapshots')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting snapshot:', error);
+    throw error;
+  }
+}
+
+// Helper function to call the database function to create daily snapshot
+export async function triggerDailySnapshot() {
+  const { error } = await supabase.rpc('create_daily_snapshot');
+
+  if (error) {
+    console.error('Error triggering daily snapshot:', error);
+    throw error;
+  }
+}
+

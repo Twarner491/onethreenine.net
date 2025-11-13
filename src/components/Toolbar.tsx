@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useDrag } from 'react-dnd';
-import { StickyNote, Image, List, Receipt, Calendar, LogOut, Plus, X, Settings } from 'lucide-react';
+import { StickyNote, Image, List, Receipt, Calendar, LogOut, Plus, X, Settings, Clock } from 'lucide-react';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import type { User as UserType } from './types';
@@ -310,7 +310,7 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
           <div 
             className="overflow-hidden transition-all duration-300"
             style={{
-              maxHeight: isToolsExpanded ? '250px' : '0px',
+              maxHeight: isToolsExpanded ? '300px' : '0px',
             }}
           >
             <div className="px-3 pb-3 pt-1 space-y-1.5 max-h-[calc(100vh-200px)] overflow-y-auto">
@@ -325,6 +325,19 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
                   <span className="text-sm font-medium">{tool.label}</span>
                 </button>
               ))}
+              
+              {/* Divider */}
+              <div className="border-t border-amber-900/10 my-1.5" />
+              
+              {/* Timeline link */}
+              <a
+                href="/timeline"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-amber-800/80 transition-all hover:bg-amber-900/10 active:bg-amber-900/20 text-left"
+                style={{ minHeight: '44px' }}
+              >
+                <Clock size={16} />
+                <span className="text-sm font-medium">Timeline</span>
+              </a>
             </div>
           </div>
         </div>

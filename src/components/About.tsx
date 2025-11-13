@@ -144,6 +144,10 @@ export default function About() {
                   </div>
                 </div>
 
+                <p className="leading-relaxed text-gray-700" style={{ fontSize: '0.8em' }}>
+                by <a href="https://teddywarner.org" target="_blank" style={{ textDecoration: 'underline' }}>Teddy</a> - see <a href="/timeline" style={{ textDecoration: 'underline' }}>past boards</a>
+                </p>
+
               </div>
             </div>
           </div>

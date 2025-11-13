@@ -1,0 +1,13 @@
+---
+import Layout from '../layouts/Layout.astro';
+import TimelineComponent from '../components/Timeline.tsx';
+import '../styles/index.css';
+---
+
+<Layout 
+  title="a timeline of onethreenine" 
+  description="View daily snapshots of the onethreenine corkboard over time"
+>
+  <TimelineComponent client:load />
+</Layout>
+

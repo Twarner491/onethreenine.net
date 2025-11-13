@@ -72,6 +72,33 @@ export type Database = {
         }
         Relationships: []
       }
+      board_snapshots: {
+        Row: {
+          id: string
+          snapshot_date: string
+          items_data: Json
+          item_count: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          snapshot_date: string
+          items_data: Json
+          item_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          snapshot_date?: string
+          items_data?: Json
+          item_count?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       board_items_with_users: {
@@ -93,7 +120,10 @@ export type Database = {
       }
     }
     Functions: {
-      [_ in never]: never
+      create_daily_snapshot: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
