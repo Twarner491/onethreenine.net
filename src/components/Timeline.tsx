@@ -437,7 +437,7 @@ export default function Timeline() {
 
           {/* Post-it content */}
           <div 
-            className="relative flex flex-col"
+            className="relative flex flex-col overflow-hidden"
             style={{
               background: '#fef3c7',
               borderRadius: '2px',
@@ -446,7 +446,8 @@ export default function Timeline() {
                 0 8px 20px rgba(0, 0, 0, 0.1),
                 inset 0 -1px 2px rgba(0, 0, 0, 0.05)
               `,
-              padding: '48px 64px',
+              padding: '48px 64px 0 64px',
+              height: '85vh',
               maxHeight: '85vh',
             }}
           >
@@ -474,9 +475,9 @@ export default function Timeline() {
             <div style={{ height: '8px' }}></div>
 
             {/* Content */}
-            <div className="mt-12 flex flex-col" style={{ maxHeight: 'calc(85vh - 48px - 64px)' }}>
+            <div className="mt-12">
               {/* Header with title and count */}
-              <div className="flex items-start justify-between">
+              <div className="flex items-start justify-between mb-4">
                 <h1 className="text-3xl font-bold text-amber-900/90">
                   Board Timeline
                 </h1>
@@ -487,11 +488,15 @@ export default function Timeline() {
                 </div>
               </div>
 
-              {/* Fixed spacer */}
-              <div style={{ height: '16px' }}></div>
-
-              {/* Scrollable snapshot list */}
-              <div className="flex-1 overflow-y-auto pr-2 -mr-2 min-h-0">
+              {/* Scrollable snapshot list with explicit max-height */}
+              <div 
+                className="overflow-y-auto pr-2 -mr-2"
+                style={{ 
+                  maxHeight: 'calc(85vh - 160px)',
+                  overflowY: 'scroll',
+                  WebkitOverflowScrolling: 'touch',
+                }}
+              >
                 {snapshots.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20">
                     <Calendar size={48} className="mb-4 text-amber-900/40" />
@@ -503,7 +508,7 @@ export default function Timeline() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-3 pb-2">
+                  <div className="space-y-3">
                     {snapshots.map((snapshot) => (
                       <SnapshotListItem
                         key={snapshot.id}
