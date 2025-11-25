@@ -5,6 +5,7 @@ import { PolaroidPhoto } from './items/PolaroidPhoto';
 import { ListCard } from './items/ListCard';
 import { Receipt } from './items/Receipt';
 import { EventCard } from './items/EventCard';
+import { MenuCard } from './items/MenuCard';
 
 interface CustomDragLayerProps {
   items: BoardItem[];
@@ -68,13 +69,25 @@ export function CustomDragLayer({ items, users, currentUserId }: CustomDragLayer
           />
         );
       case 'menu':
-        return (
-          <EventCard 
-            content={draggedItem.content}
-            onChange={() => {}}
-            isEditMode={false}
-          />
-        );
+        // Check if this is a dinner menu (has sections) or an event (has items at top level)
+        const menuContent = draggedItem.content as any;
+        const isDinnerMenu = menuContent && 'sections' in menuContent;
+        
+        if (isDinnerMenu) {
+          return (
+            <MenuCard 
+              content={draggedItem.content}
+            />
+          );
+        } else {
+          return (
+            <EventCard 
+              content={draggedItem.content}
+              onChange={() => {}}
+              isEditMode={false}
+            />
+          );
+        }
       default:
         return null;
     }

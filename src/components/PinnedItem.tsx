@@ -4,6 +4,7 @@ import { PostItNote } from './items/PostItNote';
 import { PolaroidPhoto } from './items/PolaroidPhoto';
 import { ListCard } from './items/ListCard';
 import { Receipt } from './items/Receipt';
+import { MenuCard } from './items/MenuCard';
 import { EventCard } from './items/EventCard';
 import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -315,13 +316,26 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
           />
         );
       case 'menu':
-        return (
-          <EventCard 
-            content={item.content}
-            onChange={(content) => onUpdate(item.id, { content })}
-            isEditMode={shouldShowEditMode}
-          />
-        );
+        // Check if this is a dinner menu (has sections) or an event (has items at top level)
+        const menuContent = item.content as any;
+        const isDinnerMenu = menuContent && 'sections' in menuContent;
+        
+        if (isDinnerMenu) {
+          return (
+            <MenuCard 
+              content={item.content}
+            />
+          );
+        } else {
+          // It's an event card
+          return (
+            <EventCard 
+              content={item.content}
+              onChange={(content) => onUpdate(item.id, { content })}
+              isEditMode={shouldShowEditMode}
+            />
+          );
+        }
       default:
         return null;
     }
@@ -527,7 +541,8 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
         {renderContent()}
         
         {/* Delete button - renders last to be on top */}
-        {isEditMode && (
+        {/* Hide delete button for dinner menu items (they have 'sections' in content) */}
+        {isEditMode && !(item.type === 'menu' && (item.content as any)?.sections) && (
           <button
             onClick={() => onDelete(item.id)}
             className="absolute -top-2 -right-2 w-7 h-7 bg-gray-100 text-gray-600 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-md hover:shadow-lg hover:bg-red-100 hover:text-red-600 hover:scale-110 active:scale-95 flex items-center justify-center border border-gray-200"

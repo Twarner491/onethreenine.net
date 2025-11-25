@@ -151,20 +151,36 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
           }}
         >
         {/* Render all pinned items within the workspace */}
-        {items.map((item) => (
-          <PinnedItem
-            key={item.id}
-            item={item}
-            onUpdate={onUpdateItem}
-            onDelete={onDeleteItem}
-            isEditMode={isEditMode}
-            users={users}
-            currentUserId={currentUserId}
-            onMobileEditingChange={handleMobileEditingChange}
-            isSelected={selectedItemId === item.id}
-            onSelect={() => onSelectItem(item.id)}
-          />
-        ))}
+        {/* Filter out empty dinner menu items (those with 'sections' but no actual dishes) */}
+        {items
+          .filter((item) => {
+            // Check if it's a dinner menu (has sections)
+            if (item.type === 'menu') {
+              const content = item.content as any;
+              if (content && 'sections' in content) {
+                // It's a dinner menu - only show if there are actual dishes with names
+                const hasActualDishes = content.sections?.some(
+                  (s: any) => s.items?.some((dish: any) => dish.name && dish.name.trim() !== '')
+                );
+                return hasActualDishes;
+              }
+            }
+            return true;
+          })
+          .map((item) => (
+            <PinnedItem
+              key={item.id}
+              item={item}
+              onUpdate={onUpdateItem}
+              onDelete={onDeleteItem}
+              isEditMode={isEditMode}
+              users={users}
+              currentUserId={currentUserId}
+              onMobileEditingChange={handleMobileEditingChange}
+              isSelected={selectedItemId === item.id}
+              onSelect={() => onSelectItem(item.id)}
+            />
+          ))}
       </div>
 
         {/* Custom drag layer for real-time drag preview */}

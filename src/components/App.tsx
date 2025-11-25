@@ -343,7 +343,7 @@ export default function App() {
     channelRef.current = channel;
   };
 
-  const handleAddItem = async (type: BoardItem['type']) => {
+  const handleAddItem = async (type: BoardItem['type'] | 'event') => {
     if (!currentUser) {
       toast.error('Please log in to add items');
       return;
@@ -358,11 +358,15 @@ export default function App() {
       const colors = ['#fef3c7', '#dbeafe', '#fce7f3', '#d1fae5', '#e0e7ff'];
       const randomColor = colors[Math.floor(Math.random() * colors.length)];
       
+      // Map 'event' to 'menu' type with event content structure (for DB compatibility)
+      const actualType = type === 'event' ? 'menu' : type;
+      
       const content = type === 'note' ? { text: '' } :
                      type === 'list' ? { title: 'New List', items: [] } :
                      type === 'photo' ? { imageUrl: null, caption: '' } :
                      type === 'receipt' ? { store: '', date: new Date().toLocaleDateString(), items: [], total: 0 } :
-                     type === 'menu' ? { title: 'New Event', date: '', items: [] } :
+                     type === 'event' ? { title: 'New Event', date: '', items: [] } :
+                     type === 'menu' ? { sections: [{ title: 'Main', items: [] }] } :
                      {};
 
       const x = Math.random() * (window.innerWidth - 300) + 50;
@@ -373,7 +377,7 @@ export default function App() {
       const optimisticId = `temp-${Date.now()}`;
       const optimisticItem: BoardItem = {
         id: optimisticId,
-        type,
+        type: actualType,
         x,
         y,
         rotation,
@@ -389,7 +393,7 @@ export default function App() {
 
       // Create in database
       const createdItem = await createBoardItem(
-        type,
+        actualType,
         x,
         y,
         content,

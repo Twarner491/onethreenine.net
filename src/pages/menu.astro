@@ -1,0 +1,13 @@
+---
+import Layout from '../layouts/Layout.astro';
+import MenuComponent from '../components/Menu.tsx';
+import '../styles/index.css';
+---
+
+<Layout 
+  title="menu | onethreenine" 
+  description="View and edit the dinner menu on onethreenine.net"
+>
+  <MenuComponent client:load />
+</Layout>
+

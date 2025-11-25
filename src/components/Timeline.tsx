@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, Calendar, Camera, ChevronLeft, ChevronRight } from 'lucide-react';
-import { getAllSnapshots, createSnapshot } from '../lib/supabase';
+import { ArrowLeft, Calendar, Camera, ChevronLeft, ChevronRight, Utensils } from 'lucide-react';
+import { getAllSnapshots, createSnapshot, getAllMenuEntries } from '../lib/supabase';
 import { toast } from 'sonner';
 import type { BoardItem } from './types';
 import { PinnedItem } from './PinnedItem';
@@ -14,6 +14,22 @@ interface Snapshot {
   item_count: number;
   created_at: string;
   updated_at: string;
+}
+
+interface MenuEntry {
+  id: string;
+  menu_date: string;
+  title: string | null;
+  sections: any[];
+  photos: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+interface TimelineItem {
+  type: 'snapshot' | 'menu';
+  date: string;
+  data: Snapshot | MenuEntry;
 }
 
 const maskingTapeTextures = [
@@ -30,10 +46,19 @@ const maskingTapeTextures = [
   '/assets/images/maskingtape/f08402eb-b275-4034-8d66-4981f93ad679_rw_1200.png',
 ];
 
+const paperTextures = [
+  '/assets/images/paper/2337696d-9c85-4330-839d-4102c2c8da38_rw_1920.png',
+  '/assets/images/paper/44fe7d03-7726-46a0-9b17-5790a11fe42d_rw_3840.png',
+  '/assets/images/paper/572e1f03-ee6d-4a6b-95d8-9fec367c58a9_rw_1920.png',
+  '/assets/images/paper/7e962015-0433-412b-a317-f61b5443a8d7_rw_1920.png',
+];
+
 export default function Timeline() {
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
+  const [menuEntries, setMenuEntries] = useState<MenuEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(null);
+  const [selectedMenu, setSelectedMenu] = useState<MenuEntry | null>(null);
   const [isCreatingSnapshot, setIsCreatingSnapshot] = useState(false);
 
   // Select random masking tape and rotation once
@@ -45,41 +70,51 @@ export default function Timeline() {
     (Math.random() - 0.5) * 10,
     []
   );
+  const paperTexture = useMemo(() => 
+    paperTextures[Math.floor(Math.random() * paperTextures.length)],
+    []
+  );
 
   useEffect(() => {
-    loadSnapshots();
+    loadData();
   }, []);
 
   // Keyboard navigation for snapshot view
   useEffect(() => {
-    if (!selectedSnapshot) return;
+    if (!selectedSnapshot && !selectedMenu) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') {
-        navigateSnapshot('prev');
-      } else if (e.key === 'ArrowRight') {
-        navigateSnapshot('next');
-      } else if (e.key === 'Escape') {
+      if (e.key === 'Escape') {
         setSelectedSnapshot(null);
+        setSelectedMenu(null);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedSnapshot, snapshots]);
+  }, [selectedSnapshot, selectedMenu]);
 
-  const loadSnapshots = async () => {
+  const loadData = async () => {
     try {
       setIsLoading(true);
-      const data = await getAllSnapshots();
-      // Cast the items_data from Json to BoardItem[]
-      const formattedSnapshots: Snapshot[] = data.map(snapshot => ({
+      const [snapshotsData, menuData] = await Promise.all([
+        getAllSnapshots(),
+        getAllMenuEntries()
+      ]);
+      
+      const formattedSnapshots: Snapshot[] = snapshotsData.map(snapshot => ({
         ...snapshot,
         items_data: (snapshot.items_data as unknown as BoardItem[]) || []
       }));
+      
       setSnapshots(formattedSnapshots);
+      setMenuEntries((menuData || []).map(entry => ({
+        ...entry,
+        sections: (entry.sections || []) as any[],
+        photos: (entry.photos || []) as string[]
+      })));
     } catch (error) {
-      console.error('Error loading snapshots:', error);
+      console.error('Error loading data:', error);
       toast.error('Failed to load timeline');
     } finally {
       setIsLoading(false);
@@ -91,7 +126,7 @@ export default function Timeline() {
       setIsCreatingSnapshot(true);
       await createSnapshot();
       toast.success('Snapshot created successfully!');
-      await loadSnapshots();
+      await loadData();
     } catch (error) {
       console.error('Error creating snapshot:', error);
       toast.error('Failed to create snapshot');
@@ -99,7 +134,6 @@ export default function Timeline() {
       setIsCreatingSnapshot(false);
     }
   };
-
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -111,21 +145,28 @@ export default function Timeline() {
     });
   };
 
-  const navigateSnapshot = (direction: 'prev' | 'next') => {
-    if (!selectedSnapshot) return;
+  // Combine and sort timeline items
+  const timelineItems: TimelineItem[] = useMemo(() => {
+    const items: TimelineItem[] = [
+      ...snapshots.map(snapshot => ({
+        type: 'snapshot' as const,
+        date: snapshot.snapshot_date,
+        data: snapshot
+      })),
+      ...menuEntries.map(menu => ({
+        type: 'menu' as const,
+        date: menu.menu_date,
+        data: menu
+      }))
+    ];
     
-    const currentIndex = snapshots.findIndex(s => s.id === selectedSnapshot.id);
-    const newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
-    
-    if (newIndex >= 0 && newIndex < snapshots.length) {
-      setSelectedSnapshot(snapshots[newIndex]);
-    }
-  };
+    // Sort by date descending
+    return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [snapshots, menuEntries]);
 
   if (isLoading) {
     return (
       <div className="w-screen h-screen overflow-hidden relative">
-        {/* Corkboard Background */}
         <div 
           className="absolute inset-0"
           style={{
@@ -151,13 +192,289 @@ export default function Timeline() {
     );
   }
 
+  // If a menu is selected, show it
+  if (selectedMenu) {
+    // Generate random positions for photos
+    const photoPositions = selectedMenu.photos?.map(() => ({
+      rotation: (Math.random() - 0.5) * 12,
+      tapeRotation: (Math.random() - 0.5) * 15,
+      tapeTexture: maskingTapeTextures[Math.floor(Math.random() * maskingTapeTextures.length)],
+    })) || [];
+
+    return (
+      <div className="w-screen h-screen overflow-hidden relative">
+        {/* Corkboard Background */}
+        <div 
+          className="absolute inset-0"
+          style={{
+            backgroundImage: 'url(/assets/images/corkboard/cork-board-background-2000-x-1333-wtfq50v9g0jpm6gm.jpg)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        >
+          <div 
+            className="absolute inset-0"
+            style={{
+              backgroundImage: `radial-gradient(circle at center, rgba(40, 25, 15, 0.4) 0px, rgba(40, 25, 15, 0.3) 1.5px, rgba(60, 40, 25, 0.15) 2px, transparent 2.5px)`,
+              backgroundSize: '40px 40px',
+              backgroundPosition: '20px 20px',
+            }}
+          />
+          <div 
+            className="absolute inset-0 opacity-10"
+            style={{
+              background: `
+                radial-gradient(ellipse 800px 800px at 25% 25%, rgba(255, 255, 255, 0.3) 0%, transparent 50%),
+                radial-gradient(ellipse 600px 600px at 75% 75%, rgba(0, 0, 0, 0.2) 0%, transparent 50%)
+              `,
+            }}
+          />
+          <div 
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              boxShadow: 'inset 0 0 120px rgba(0, 0, 0, 0.2), inset 0 0 60px rgba(0, 0, 0, 0.08)',
+            }}
+          />
+        </div>
+
+        {/* Menu Display with Photos */}
+        <div className="absolute inset-0 flex items-center justify-center p-8 overflow-auto">
+          <div className="flex items-start gap-8 flex-wrap justify-center">
+            {/* Menu Paper */}
+            <div
+              className="relative"
+              style={{
+                transform: 'rotate(-0.5deg)',
+                maxWidth: '380px',
+                width: '100%',
+              }}
+            >
+              {/* Masking tape */}
+              <div 
+                className="absolute top-0 left-1/2 z-10 pointer-events-none"
+                style={{
+                  width: '80px',
+                  height: '35px',
+                  transform: `translateX(-50%) translateY(-18px) rotate(${tapeRotation}deg)`,
+                }}
+              >
+                <img 
+                  src={tapeTexture}
+                  alt="masking tape"
+                  className="w-full h-full object-cover"
+                  style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))' }}
+                />
+              </div>
+
+              {/* Paper content */}
+              <div 
+                className="relative bg-white shadow-lg"
+                style={{
+                  boxShadow: `
+                    4px 4px 12px rgba(0,0,0,0.3), 
+                    0 8px 20px rgba(0,0,0,0.2),
+                    inset 0 1px 0 rgba(255,255,255,0.8),
+                    inset 0 -1px 0 rgba(0,0,0,0.05)
+                  `,
+                  padding: '48px 40px 40px',
+                  minHeight: '380px',
+                }}
+              >
+                {/* Paper texture */}
+                <div 
+                  className="absolute inset-0 opacity-[0.15] pointer-events-none"
+                  style={{
+                    backgroundImage: `url(${paperTexture})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    mixBlendMode: 'multiply',
+                  }}
+                />
+
+                {/* Back button */}
+                <button
+                  onClick={() => setSelectedMenu(null)}
+                  className="absolute top-4 left-4 flex items-center gap-1.5 px-2 py-1.5 rounded text-stone-500 transition-all hover:bg-stone-100 text-sm"
+                >
+                  <ArrowLeft size={14} />
+                  <span>Back</span>
+                </button>
+
+                {/* Content */}
+                <div className="relative z-10 mt-6">
+                  {/* Header */}
+                  <div className="text-center mb-4">
+                    <h1 
+                      className="text-base tracking-[0.2em] font-normal text-stone-600 uppercase"
+                      style={{ fontFamily: 'Cormorant Garamond, Georgia, serif' }}
+                    >
+                      Menu
+                    </h1>
+                    <div 
+                      className="text-xs text-stone-400 mt-1"
+                      style={{ fontFamily: 'Inter, sans-serif' }}
+                    >
+                      {formatDate(selectedMenu.menu_date)}
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-b border-gray-200 mb-4" />
+
+                  {/* Sections */}
+                  <div className="space-y-4">
+                    {selectedMenu.sections.map((section: any, sectionIndex: number) => (
+                      <div key={sectionIndex}>
+                        {section.title && (
+                          <div 
+                            className="text-xs font-medium uppercase tracking-wider text-center text-stone-400 mb-2"
+                            style={{ 
+                              fontFamily: 'Cormorant Garamond, Georgia, serif',
+                              letterSpacing: '0.1em',
+                            }}
+                          >
+                            {section.title}
+                          </div>
+                        )}
+                        <div className="space-y-1.5">
+                          {section.items?.map((item: any, itemIndex: number) => (
+                            <div key={itemIndex} className="text-center">
+                              <div 
+                                className="text-sm text-stone-600"
+                                style={{ fontFamily: 'Cormorant Garamond, Georgia, serif' }}
+                              >
+                                {item.name}
+                              </div>
+                              {item.description && (
+                                <div 
+                                  className="text-xs italic text-stone-400 mt-0.5"
+                                  style={{ fontFamily: 'Inter, sans-serif' }}
+                                >
+                                  {item.description}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Polaroid Photos */}
+            {selectedMenu.photos && selectedMenu.photos.length > 0 && (
+              <div className="flex flex-col gap-6">
+                {selectedMenu.photos.map((photo, index) => (
+                  <div
+                    key={index}
+                    className="relative"
+                    style={{
+                      transform: `rotate(${photoPositions[index]?.rotation || 0}deg)`,
+                    }}
+                  >
+                    {/* Masking tape for photo */}
+                    <div 
+                      className="absolute top-0 left-1/2 z-10 pointer-events-none"
+                      style={{
+                        width: '80px',
+                        height: '35px',
+                        transform: `translateX(-50%) translateY(-18px) rotate(${photoPositions[index]?.tapeRotation || 0}deg)`,
+                      }}
+                    >
+                      <img 
+                        src={photoPositions[index]?.tapeTexture || tapeTexture}
+                        alt="masking tape"
+                        className="w-full h-full object-cover"
+                        style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))' }}
+                      />
+                    </div>
+
+                    {/* Polaroid frame */}
+                    <div
+                      className="bg-white p-4 shadow-lg relative"
+                      style={{
+                        width: '240px',
+                        boxShadow: `
+                          4px 6px 16px rgba(0,0,0,0.35), 
+                          0 10px 24px rgba(0,0,0,0.25),
+                          inset 0 1px 0 rgba(255,255,255,0.9),
+                          inset 0 0 20px rgba(255,255,255,0.4)
+                        `,
+                      }}
+                    >
+                      {/* Glossy finish overlay */}
+                      <div 
+                        className="absolute inset-0 pointer-events-none"
+                        style={{
+                          background: `
+                            linear-gradient(135deg, 
+                              rgba(255,255,255,0.6) 0%, 
+                              rgba(255,255,255,0.2) 20%, 
+                              rgba(255,255,255,0.05) 40%, 
+                              transparent 60%, 
+                              rgba(0,0,0,0.02) 80%, 
+                              rgba(0,0,0,0.05) 100%
+                            )
+                          `,
+                        }}
+                      />
+                      
+                      {/* Glossy highlight */}
+                      <div 
+                        className="absolute top-0 left-0 right-0 h-20 pointer-events-none"
+                        style={{
+                          background: 'linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 100%)',
+                        }}
+                      />
+                      
+                      {/* Fine texture for realism */}
+                      <div 
+                        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+                        style={{
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='5' numOctaves='1' /%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E")`,
+                        }}
+                      />
+                      
+                      {/* Photo area */}
+                      <div className="w-full h-56 bg-gray-100 mb-3 overflow-hidden relative">
+                        <img 
+                          src={photo}
+                          alt={`Meal photo ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      
+                      {/* Caption area */}
+                      <div 
+                        className="text-center relative"
+                        style={{ 
+                          fontFamily: 'Inter, sans-serif',
+                          fontSize: '14px',
+                          color: '#374151',
+                          minHeight: '24px'
+                        }}
+                      >
+                        {formatDate(selectedMenu.menu_date)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // If a snapshot is selected, show it in fullscreen
   if (selectedSnapshot) {
     const currentIndex = snapshots.findIndex(s => s.id === selectedSnapshot.id);
     const hasPrev = currentIndex > 0;
     const hasNext = currentIndex < snapshots.length - 1;
 
-    // Calculate toolbar position (same logic as main board toolbar)
     const getToolbarPosition = () => {
       if (typeof window === 'undefined') return { x: 32, y: 500 };
       const isMobile = window.innerWidth < 768;
@@ -170,7 +487,6 @@ export default function Timeline() {
     const toolbarPosition = getToolbarPosition();
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
-    // Calculate scale for board items (same as PegboardCanvas)
     const TARGET_ASPECT_RATIO = 16 / 9;
     const WORKSPACE_WIDTH = 1920;
     
@@ -185,13 +501,11 @@ export default function Timeline() {
       let workspaceWidth, workspaceHeight;
       
       if (viewportAspect > TARGET_ASPECT_RATIO) {
-        // Viewport is wider than target - fit to height with padding
         const padding = 40;
         workspaceHeight = viewportHeight - padding * 2;
         workspaceWidth = workspaceHeight * TARGET_ASPECT_RATIO;
         scale = workspaceWidth / WORKSPACE_WIDTH;
       } else {
-        // Viewport is taller than target - fit to width with padding
         const padding = 40;
         workspaceWidth = viewportWidth - padding * 2;
         workspaceHeight = workspaceWidth / TARGET_ASPECT_RATIO;
@@ -207,10 +521,16 @@ export default function Timeline() {
     const offsetX = (typeof window !== 'undefined' ? window.innerWidth : 1920) / 2 - workspaceWidth / 2;
     const offsetY = (typeof window !== 'undefined' ? window.innerHeight : 1080) / 2 - workspaceHeight / 2;
 
+    const navigateSnapshot = (direction: 'prev' | 'next') => {
+      const newIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+      if (newIndex >= 0 && newIndex < snapshots.length) {
+        setSelectedSnapshot(snapshots[newIndex]);
+      }
+    };
+
     return (
       <DndProvider backend={HTML5Backend}>
         <div className="w-screen h-screen overflow-hidden relative">
-          {/* Corkboard Background */}
           <div 
             className="absolute inset-0"
             style={{
@@ -227,7 +547,6 @@ export default function Timeline() {
                 backgroundPosition: '20px 20px',
               }}
             />
-            
             <div 
               className="absolute inset-0 opacity-10"
               style={{
@@ -237,7 +556,6 @@ export default function Timeline() {
                 `,
               }}
             />
-            
             <div 
               className="absolute inset-0 pointer-events-none"
               style={{
@@ -246,7 +564,6 @@ export default function Timeline() {
             />
           </div>
 
-          {/* Board items from snapshot - read-only with scaling */}
           <div 
             className="absolute overflow-hidden"
             style={{
@@ -272,7 +589,6 @@ export default function Timeline() {
             ))}
           </div>
 
-          {/* Toolbar-styled navigation */}
           <div
             className="fixed z-50"
             style={{
@@ -282,7 +598,6 @@ export default function Timeline() {
               transformOrigin: 'top left',
             }}
           >
-            {/* Masking tape */}
             <div 
               className="absolute top-0 left-1/2 z-10 pointer-events-none"
               style={{
@@ -295,13 +610,10 @@ export default function Timeline() {
                 src={tapeTexture}
                 alt="masking tape"
                 className="w-full h-full object-cover"
-                style={{
-                  filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
-                }}
+                style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))' }}
               />
             </div>
 
-            {/* Post-it note navigation */}
             <div 
               className="relative"
               style={{
@@ -316,7 +628,6 @@ export default function Timeline() {
                 padding: '20px',
               }}
             >
-              {/* Navigation controls */}
               <div className="space-y-3">
                 <button
                   onClick={() => setSelectedSnapshot(null)}
@@ -326,7 +637,6 @@ export default function Timeline() {
                   Back to Timeline
                 </button>
 
-                {/* Date display */}
                 <div className="text-center py-2">
                   <div className="text-sm font-medium text-amber-900/90 mb-1">
                     {formatDate(selectedSnapshot.snapshot_date)}
@@ -341,7 +651,6 @@ export default function Timeline() {
                     onClick={() => navigateSnapshot('prev')}
                     disabled={!hasPrev}
                     className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-md text-amber-800/80 transition-all hover:bg-amber-900/10 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium"
-                    title="Previous snapshot (←)"
                   >
                     <ChevronLeft size={14} />
                     Prev
@@ -350,7 +659,6 @@ export default function Timeline() {
                     onClick={() => navigateSnapshot('next')}
                     disabled={!hasNext}
                     className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-md text-amber-800/80 transition-all hover:bg-amber-900/10 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium"
-                    title="Next snapshot (→)"
                   >
                     Next
                     <ChevronRight size={14} />
@@ -367,7 +675,6 @@ export default function Timeline() {
   // Timeline grid view
   return (
     <div className="w-screen h-screen overflow-hidden relative">
-      {/* Corkboard Background */}
       <div 
         className="absolute inset-0"
         style={{
@@ -384,8 +691,6 @@ export default function Timeline() {
             backgroundPosition: '20px 20px',
           }}
         />
-        
-        {/* Subtle shadow highlights */}
         <div 
           className="absolute inset-0 opacity-10"
           style={{
@@ -395,8 +700,6 @@ export default function Timeline() {
             `,
           }}
         />
-        
-        {/* Edge vignette */}
         <div 
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -405,7 +708,6 @@ export default function Timeline() {
         />
       </div>
 
-      {/* Centered Post-it Container */}
       <div className="absolute inset-0 flex items-center justify-center p-8">
         <div
           className="relative"
@@ -416,7 +718,6 @@ export default function Timeline() {
             maxHeight: '90vh',
           }}
         >
-          {/* Masking tape */}
           <div 
             className="absolute top-0 left-1/2 z-10 pointer-events-none"
             style={{
@@ -429,13 +730,10 @@ export default function Timeline() {
               src={tapeTexture}
               alt="masking tape"
               className="w-full h-full object-cover"
-              style={{
-                filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
-              }}
+              style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))' }}
             />
           </div>
 
-          {/* Post-it content */}
           <div 
             className="relative flex flex-col overflow-hidden"
             style={{
@@ -451,7 +749,6 @@ export default function Timeline() {
               maxHeight: '85vh',
             }}
           >
-            {/* Back button */}
             <a
               href="/"
               className="absolute top-4 -left-8 flex items-center gap-2 px-3 py-2 rounded-md text-amber-900/80 transition-all hover:bg-amber-900/10"
@@ -460,7 +757,6 @@ export default function Timeline() {
               <span className="text-sm font-medium">Back to Board</span>
             </a>
 
-            {/* Snapshot button - inline with Back button */}
             <div className="absolute flex justify-end" style={{ top: '25px', right: '30px' }}>
               <button
                 onClick={handleCreateSnapshot}
@@ -474,21 +770,18 @@ export default function Timeline() {
 
             <div style={{ height: '8px' }}></div>
 
-            {/* Content */}
             <div className="mt-12">
-              {/* Header with title and count */}
               <div className="flex items-start justify-between mb-4">
                 <h1 className="text-3xl font-bold text-amber-900/90">
-                  Board Timeline
+                  Timeline
                 </h1>
                 <div className="text-right">
                   <p className="text-sm text-amber-900/70">
-                    {snapshots.length} snapshot{snapshots.length !== 1 ? 's' : ''}
+                    {menuEntries.length} meal{menuEntries.length !== 1 ? 's' : ''} · {snapshots.length} snapshot{snapshots.length !== 1 ? 's' : ''}
                   </p>
                 </div>
               </div>
 
-              {/* Scrollable snapshot list with explicit max-height */}
               <div 
                 className="overflow-y-auto pr-2 -mr-2"
                 style={{ 
@@ -497,23 +790,29 @@ export default function Timeline() {
                   WebkitOverflowScrolling: 'touch',
                 }}
               >
-                {snapshots.length === 0 ? (
+                {timelineItems.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20">
                     <Calendar size={48} className="mb-4 text-amber-900/40" />
                     <p className="text-amber-900/70 text-lg">
-                      No snapshots yet!
+                      No entries yet!
                     </p>
                     <p className="text-amber-900/60 text-sm mt-2">
-                      Click "Snapshot Now" to save the current board state
+                      Capture a menu or take a snapshot
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {snapshots.map((snapshot) => (
-                      <SnapshotListItem
-                        key={snapshot.id}
-                        snapshot={snapshot}
-                        onView={() => setSelectedSnapshot(snapshot)}
+                    {timelineItems.map((item) => (
+                      <TimelineListItem
+                        key={item.data.id}
+                        item={item}
+                        onView={() => {
+                          if (item.type === 'menu') {
+                            setSelectedMenu(item.data as MenuEntry);
+                          } else {
+                            setSelectedSnapshot(item.data as Snapshot);
+                          }
+                        }}
                         formatDate={formatDate}
                       />
                     ))}
@@ -528,35 +827,51 @@ export default function Timeline() {
   );
 }
 
-interface SnapshotListItemProps {
-  snapshot: Snapshot;
+interface TimelineListItemProps {
+  item: TimelineItem;
   onView: () => void;
   formatDate: (date: string) => string;
 }
 
-function SnapshotListItem({ snapshot, onView, formatDate }: SnapshotListItemProps) {
+function TimelineListItem({ item, onView, formatDate }: TimelineListItemProps) {
+  const isMenu = item.type === 'menu';
+  const menuData = isMenu ? item.data as MenuEntry : null;
+  const snapshotData = !isMenu ? item.data as Snapshot : null;
+  
+  // Get preview text
+  const previewText = isMenu 
+    ? (menuData?.sections?.[0]?.items?.[0]?.name || 'Menu')
+    : `${snapshotData?.item_count || 0} items`;
+  
   return (
     <div
       onClick={onView}
       className="bg-amber-900/5 rounded-lg p-4 cursor-pointer transition-all hover:bg-amber-900/10 border border-amber-900/10 hover:border-amber-900/20 hover:shadow-sm"
     >
       <div className="flex items-center gap-4">
-        {/* Date icon */}
+        {/* Icon */}
         <div className="flex-shrink-0 w-12 h-12 bg-amber-900/10 rounded-lg flex items-center justify-center">
-          <Calendar size={20} className="text-amber-900/60" />
+          {isMenu ? (
+            <Utensils size={20} className="text-amber-900/60" />
+          ) : (
+            <Camera size={20} className="text-amber-900/60" />
+          )}
         </div>
         
-        {/* Date and info */}
+        {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="font-medium text-amber-900/90 mb-1">
-            {formatDate(snapshot.snapshot_date)}
+            {formatDate(item.date)}
           </div>
-          <div className="text-sm text-amber-900/60">
-            {snapshot.item_count} item{snapshot.item_count !== 1 ? 's' : ''} saved
+          <div className="text-sm text-amber-900/60 truncate flex items-center gap-2">
+            <span className="text-xs uppercase tracking-wider text-amber-900/40">
+              {isMenu ? 'Menu' : 'Snapshot'}
+            </span>
+            <span className="text-amber-900/30">•</span>
+            {previewText}
           </div>
         </div>
 
-        {/* Arrow indicator */}
         <div className="flex-shrink-0 text-amber-900/40">
           <ChevronRight size={20} />
         </div>
@@ -564,4 +879,3 @@ function SnapshotListItem({ snapshot, onView, formatDate }: SnapshotListItemProp
     </div>
   );
 }
-

@@ -1,13 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useDrag } from 'react-dnd';
-import { StickyNote, Image, List, Receipt, Calendar, LogOut, Plus, X, Settings, Clock } from 'lucide-react';
+import { StickyNote, Image, List, Receipt, Calendar, LogOut, Plus, X, Settings } from 'lucide-react';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import type { User as UserType } from './types';
 import { toast } from 'sonner';
 
 interface ToolbarProps {
-  onAddItem: (type: 'note' | 'photo' | 'list' | 'receipt' | 'menu') => void;
+  onAddItem: (type: 'note' | 'photo' | 'list' | 'receipt' | 'event') => void;
   currentUser: UserType | null;
   onLogin: (userData: { name: string }) => void;
   onLogout: () => void;
@@ -34,13 +34,11 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
   const [loginName, setLoginName] = useState('');
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
   
-  // Calculate initial position based on viewport - mobile friendly
   const getInitialPosition = () => {
     if (typeof window === 'undefined') return { x: 32, y: 500 };
     
     const isMobile = window.innerWidth < 768;
     if (isMobile) {
-      // On mobile, position at bottom center for easy thumb access
       return { x: window.innerWidth / 2 - 90, y: window.innerHeight - 150 };
     }
     return { x: 32, y: window.innerHeight - 200 };
@@ -49,7 +47,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
   const [position, setPosition] = useState(getInitialPosition());
   const [rotation, setRotation] = useState(-2);
   
-  // Track window resize for mobile detection
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
@@ -59,7 +56,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Load position and rotation from localStorage
   useEffect(() => {
     const savedPosition = localStorage.getItem('toolbar-position');
     const savedRotation = localStorage.getItem('toolbar-rotation');
@@ -70,8 +66,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
       const wasMobile = savedViewport === 'mobile';
       const isCurrentlyMobile = window.innerWidth < 768;
       
-      // If viewport type changed (mobile<->desktop), reset to initial position
-      // This prevents toolbar from being off-screen when switching devices
       if (wasMobile !== isCurrentlyMobile) {
         setPosition(getInitialPosition());
       } else {
@@ -83,23 +77,19 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
     }
   }, [currentUser]);
 
-  // Save position to localStorage
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('toolbar-position', JSON.stringify(position));
-      // Save viewport type to detect when user switches between mobile/desktop
       localStorage.setItem('toolbar-viewport', isMobile ? 'mobile' : 'desktop');
     }
   }, [position, currentUser, isMobile]);
 
-  // Save rotation to localStorage
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('toolbar-rotation', rotation.toString());
     }
   }, [rotation, currentUser]);
 
-  // Select random masking tape and rotation once
   const tapeTexture = useMemo(() => 
     maskingTapeTextures[Math.floor(Math.random() * maskingTapeTextures.length)],
     []
@@ -129,7 +119,7 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
     { type: 'photo' as const, icon: Image, label: 'Photo' },
     { type: 'list' as const, icon: List, label: 'List' },
     { type: 'receipt' as const, icon: Receipt, label: 'Receipt' },
-    { type: 'menu' as const, icon: Calendar, label: 'Event' },
+    { type: 'event' as const, icon: Calendar, label: 'Event' },
   ];
 
   const handleLogin = () => {
@@ -146,7 +136,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
     toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} added!`);
   };
 
-  // If not logged in, show centered login post-it
   if (!currentUser) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -156,7 +145,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
             transform: `rotate(-2deg)`,
           }}
         >
-          {/* Masking tape */}
           <div 
             className="absolute top-0 left-1/2 z-10 pointer-events-none"
             style={{
@@ -175,7 +163,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
             />
           </div>
 
-          {/* Login post-it */}
           <div 
             className="relative"
             style={{
@@ -220,14 +207,12 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
     );
   }
 
-  // In viewer mode, hide the toolbar completely
   if (isViewerMode) {
     return null;
   }
 
   return (
     <>
-      {/* Overlay for settings dialog - greys out everything */}
       {isSettingsOpen && (
         <div 
           className="fixed inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in-0"
@@ -236,7 +221,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
         />
       )}
 
-      {/* Main toolbar as draggable post-it note */}
       <div
         ref={drag as unknown as React.Ref<HTMLDivElement>}
         className="fixed z-50 touch-none"
@@ -247,11 +231,9 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
           transformOrigin: 'top left',
           cursor: isDragging ? 'grabbing' : 'move',
           opacity: isDragging ? 0.8 : 1,
-          // Ensure toolbar stays within viewport bounds
           maxWidth: 'calc(100vw - 40px)',
         }}
       >
-        {/* Masking tape */}
         <div 
           className="absolute top-0 left-1/2 z-10 pointer-events-none"
           style={{
@@ -270,7 +252,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
           />
         </div>
 
-        {/* Post-it note container */}
         <div 
           className="relative transition-all duration-300 flex flex-col pt-2"
           style={{
@@ -284,9 +265,7 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
             width: '180px',
           }}
         >
-          {/* Top row - Plus button (left) and User section (right) - ALWAYS visible */}
           <div className="flex items-center justify-between px-3 py-2">
-            {/* Plus button - left aligned - Enhanced for mobile touch */}
             <button
               onClick={() => setIsToolsExpanded(!isToolsExpanded)}
               className="w-10 h-10 rounded-md flex items-center justify-center text-amber-800/80 transition-all hover:bg-amber-900/10 active:bg-amber-900/20 shrink-0"
@@ -295,7 +274,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
               {isToolsExpanded ? <X size={18} /> : <Plus size={18} />}
             </button>
 
-            {/* User section - right aligned - Enhanced for mobile touch */}
             <button
               onClick={() => setIsSettingsOpen(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-md text-amber-900/90 transition-all hover:bg-amber-900/10 active:bg-amber-900/20 min-w-0"
@@ -306,7 +284,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
             </button>
           </div>
           
-          {/* Tool buttons - expand/collapse DOWNWARD beneath the controls */}
           <div 
             className="overflow-hidden transition-all duration-300"
             style={{
@@ -325,25 +302,11 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
                   <span className="text-sm font-medium">{tool.label}</span>
                 </button>
               ))}
-              
-              {/* Divider */}
-              <div className="border-t border-amber-900/10 my-1.5" />
-              
-              {/* Timeline link */}
-              <a
-                href="/timeline"
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-amber-800/80 transition-all hover:bg-amber-900/10 active:bg-amber-900/20 text-left"
-                style={{ minHeight: '44px' }}
-              >
-                <Clock size={16} />
-                <span className="text-sm font-medium">Timeline</span>
-              </a>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Settings Dialog as Post-it */}
       {isSettingsOpen && (
         <div 
           className="fixed animate-in zoom-in-95 fade-in-0"
@@ -355,7 +318,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Masking tape */}
           <div 
             className="absolute top-0 left-1/2 z-10 pointer-events-none"
             style={{
@@ -389,7 +351,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
             }}
           >
             <div className="space-y-8">
-              {/* Profile Section */}
               <div className="space-y-3">
                 <h3 className="font-medium text-sm text-amber-900/80 mb-3">Signed in as</h3>
                 <div className="text-center">
@@ -397,7 +358,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="flex gap-2">
                 <button
                   onClick={() => {

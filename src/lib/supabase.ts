@@ -273,3 +273,79 @@ export async function triggerDailySnapshot() {
   }
 }
 
+// ============================================
+// MENU ENTRIES FUNCTIONS
+// ============================================
+
+// Helper function to get all menu entries
+export async function getAllMenuEntries() {
+  const { data, error } = await supabase
+    .from('menu_entries')
+    .select('*')
+    .order('menu_date', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching menu entries:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+// Helper function to create a menu entry
+export async function createMenuEntry(
+  menuDate: string,
+  sections: any[],
+  photos: string[] = [],
+  title?: string
+) {
+  const { data, error } = await supabase
+    .from('menu_entries')
+    .upsert({
+      menu_date: menuDate,
+      title,
+      sections,
+      photos,
+    }, {
+      onConflict: 'menu_date'
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating menu entry:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+// Helper function to get a menu entry by date
+export async function getMenuEntryByDate(date: string) {
+  const { data, error } = await supabase
+    .from('menu_entries')
+    .select('*')
+    .eq('menu_date', date)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching menu entry:', error);
+    throw error;
+  }
+
+  return data;
+}
+
+// Helper function to delete a menu entry
+export async function deleteMenuEntry(id: string) {
+  const { error } = await supabase
+    .from('menu_entries')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting menu entry:', error);
+    throw error;
+  }
+}
+

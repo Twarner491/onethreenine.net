@@ -99,6 +99,36 @@ export type Database = {
         }
         Relationships: []
       }
+      menu_entries: {
+        Row: {
+          id: string
+          menu_date: string
+          title: string | null
+          sections: Json
+          photos: string[]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          menu_date: string
+          title?: string | null
+          sections: Json
+          photos?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          menu_date?: string
+          title?: string | null
+          sections?: Json
+          photos?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       board_items_with_users: {
