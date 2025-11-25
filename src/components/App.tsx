@@ -563,6 +563,7 @@ export default function App() {
             currentUserId={currentUser?.id}
             selectedItemId={selectedItemId}
             onSelectItem={setSelectedItemId}
+            isViewerMode={isViewerMode}
           />
         
         {/* Show toolbar for everyone, but viewer mode gets modified toolbar */}
