@@ -328,13 +328,13 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
           );
         } else {
           // It's an event card
-          return (
-            <EventCard 
-              content={item.content}
-              onChange={(content) => onUpdate(item.id, { content })}
-              isEditMode={shouldShowEditMode}
-            />
-          );
+        return (
+          <EventCard 
+            content={item.content}
+            onChange={(content) => onUpdate(item.id, { content })}
+            isEditMode={shouldShowEditMode}
+          />
+        );
         }
       default:
         return null;

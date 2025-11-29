@@ -288,6 +288,22 @@ export default function Menu() {
         menuContent.title
       );
       
+      // Clear dishes but keep section titles
+      const clearedSections = menuContent.sections.map(section => ({
+        ...section,
+        items: []
+      }));
+      
+      const clearedContent = {
+        ...menuContent,
+        sections: clearedSections,
+        photos: [] // Clear photos from the current menu state too if any
+      };
+      
+      // Save the cleared menu to the board
+      await saveMenu(clearedContent);
+      setMenuContent(clearedContent);
+      
       toast.success('Menu captured and saved to timeline!');
       setShowCaptureModal(false);
       setCapturePhotos([]);
@@ -697,25 +713,25 @@ export default function Menu() {
                   4px 4px 12px rgba(0,0,0,0.3), 
                   0 8px 20px rgba(0,0,0,0.2)
                 `,
-                width: '380px',
+                width: '420px',
                 maxWidth: '90vw',
-                padding: '40px',
+                padding: '48px',
               }}
             >
-              <div className="space-y-5">
+              <div className="space-y-8">
                 <div className="text-center">
                   <h3 
-                    className="text-base font-medium text-stone-600 mb-1"
+                    className="text-lg font-normal text-stone-600 mb-2 uppercase tracking-widest"
                     style={{ fontFamily: 'Cormorant Garamond, Georgia, serif' }}
                   >
                     Capture Menu
                   </h3>
-                  <p className="text-xs text-stone-400">
-                    Add photos of your meal
+                  <p className="text-xs text-stone-400 font-light">
+                    Add photos of your meal (optional)
                   </p>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-4 py-2">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -726,9 +742,9 @@ export default function Menu() {
                   />
                   
                   {capturePhotos.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-3 mb-4">
                       {capturePhotos.map((photo, index) => (
-                        <div key={index} className="relative aspect-square rounded overflow-hidden group">
+                        <div key={index} className="relative aspect-square bg-stone-100 shadow-sm group">
                           <img 
                             src={photo} 
                             alt={`Photo ${index + 1}`}
@@ -736,9 +752,9 @@ export default function Menu() {
                           />
                           <button
                             onClick={() => removePhoto(index)}
-                            className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="absolute top-1 right-1 w-5 h-5 bg-white text-stone-600 shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:text-red-500"
                           >
-                            <X size={10} />
+                            <X size={12} />
                           </button>
                         </div>
                       ))}
@@ -747,32 +763,34 @@ export default function Menu() {
 
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full py-6 border-2 border-dashed border-stone-200 rounded flex flex-col items-center justify-center gap-1.5 text-stone-400 hover:text-stone-500 hover:border-stone-300 transition-all"
+                    className="w-full py-8 border border-dashed border-stone-300 rounded-sm flex flex-col items-center justify-center gap-2 text-stone-400 hover:text-stone-600 hover:border-stone-400 hover:bg-stone-50/50 transition-all group"
                   >
-                    <Upload size={20} />
-                    <span className="text-xs">Upload photos</span>
+                    <div className="p-3 rounded-full bg-stone-50 group-hover:bg-stone-100 transition-colors">
+                      <Upload size={20} className="text-stone-400 group-hover:text-stone-600" />
+                    </div>
+                    <span className="text-xs uppercase tracking-wider font-medium">Upload photos</span>
                   </button>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-3 pt-2">
                   <button
                     onClick={() => {
                       setShowCaptureModal(false);
                       setCapturePhotos([]);
                     }}
-                    className="flex-1 px-4 py-2.5 rounded bg-stone-100 text-stone-600 border border-stone-200 transition-all hover:bg-stone-200 text-sm"
+                    className="flex-1 px-4 py-3 rounded-sm bg-transparent text-stone-400 transition-all hover:bg-stone-50 hover:text-stone-600 text-xs uppercase tracking-wider font-medium"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleCapture}
                     disabled={isCapturing}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded bg-stone-700 text-white transition-all hover:bg-stone-800 text-sm disabled:opacity-50"
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-sm bg-stone-800 text-stone-50 transition-all hover:bg-stone-900 text-xs uppercase tracking-wider font-medium disabled:opacity-50 shadow-sm"
                   >
                     {isCapturing ? 'Saving...' : (
                       <>
-                        <Check size={12} />
-                        Save
+                        <Check size={14} />
+                        Done
                       </>
                     )}
                   </button>
