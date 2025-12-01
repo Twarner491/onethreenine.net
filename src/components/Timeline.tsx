@@ -136,7 +136,12 @@ export default function Timeline() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    // Parse date parts manually to avoid timezone issues since we want the exact date string
+    // Format: YYYY-MM-DD
+    const [year, month, day] = dateString.split('-').map(Number);
+    // Create date using local time constructor but with values from string
+    const date = new Date(year, month - 1, day);
+    
     return date.toLocaleDateString('en-US', { 
       weekday: 'short',
       year: 'numeric', 
@@ -161,7 +166,19 @@ export default function Timeline() {
     ];
     
     // Sort by date descending
-    return items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return items.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      
+      if (dateA !== dateB) {
+        return dateB - dateA;
+      }
+      
+      // If dates are same, sort by created_at
+      const createdA = new Date(a.data.created_at).getTime();
+      const createdB = new Date(b.data.created_at).getTime();
+      return createdB - createdA;
+    });
   }, [snapshots, menuEntries]);
 
   if (isLoading) {

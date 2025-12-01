@@ -282,7 +282,8 @@ export async function getAllMenuEntries() {
   const { data, error } = await supabase
     .from('menu_entries')
     .select('*')
-    .order('menu_date', { ascending: false });
+    .order('menu_date', { ascending: false })
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching menu entries:', error);
@@ -301,13 +302,11 @@ export async function createMenuEntry(
 ) {
   const { data, error } = await supabase
     .from('menu_entries')
-    .upsert({
+    .insert({
       menu_date: menuDate,
       title,
       sections,
       photos,
-    }, {
-      onConflict: 'menu_date'
     })
     .select()
     .single();
