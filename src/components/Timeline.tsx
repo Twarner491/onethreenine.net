@@ -60,6 +60,43 @@ export default function Timeline() {
   const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(null);
   const [selectedMenu, setSelectedMenu] = useState<MenuEntry | null>(null);
   const [isCreatingSnapshot, setIsCreatingSnapshot] = useState(false);
+  
+  // Initialize filter from URL hash
+  const [filter, setFilter] = useState<'all' | 'menu' | 'snapshot'>(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.slice(1);
+      if (hash === 'meals') return 'menu';
+      if (hash === 'snapshots') return 'snapshot';
+    }
+    return 'all';
+  });
+
+  // Update URL hash when filter changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      let hash = '';
+      if (filter === 'menu') hash = '#meals';
+      if (filter === 'snapshot') hash = '#snapshots';
+      
+      // Only update if changed to avoid history spam
+      if (window.location.hash !== hash) {
+        window.history.replaceState(null, '', hash || window.location.pathname);
+      }
+    }
+  }, [filter]);
+
+  // Listen for hash changes
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1);
+      if (hash === 'meals') setFilter('menu');
+      else if (hash === 'snapshots') setFilter('snapshot');
+      else setFilter('all');
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   // Select random masking tape and rotation once
   const tapeTexture = useMemo(() => 
@@ -152,18 +189,29 @@ export default function Timeline() {
 
   // Combine and sort timeline items
   const timelineItems: TimelineItem[] = useMemo(() => {
-    const items: TimelineItem[] = [
-      ...snapshots.map(snapshot => ({
-        type: 'snapshot' as const,
-        date: snapshot.snapshot_date,
-        data: snapshot
-      })),
-      ...menuEntries.map(menu => ({
-        type: 'menu' as const,
-        date: menu.menu_date,
-        data: menu
-      }))
-    ];
+    let items: TimelineItem[] = [];
+
+    if (filter === 'all' || filter === 'snapshot') {
+      items = [
+        ...items,
+        ...snapshots.map(snapshot => ({
+          type: 'snapshot' as const,
+          date: snapshot.snapshot_date,
+          data: snapshot
+        }))
+      ];
+    }
+
+    if (filter === 'all' || filter === 'menu') {
+      items = [
+        ...items,
+        ...menuEntries.map(menu => ({
+          type: 'menu' as const,
+          date: menu.menu_date,
+          data: menu
+        }))
+      ];
+    }
     
     // Sort by date descending
     return items.sort((a, b) => {
@@ -179,7 +227,7 @@ export default function Timeline() {
       const createdB = new Date(b.data.created_at).getTime();
       return createdB - createdA;
     });
-  }, [snapshots, menuEntries]);
+  }, [snapshots, menuEntries, filter]);
 
   if (isLoading) {
     return (
@@ -792,10 +840,20 @@ export default function Timeline() {
                 <h1 className="text-3xl font-bold text-amber-900/90">
                   Timeline
                 </h1>
-                <div className="text-right">
-                  <p className="text-sm text-amber-900/70">
-                    {menuEntries.length} meal{menuEntries.length !== 1 ? 's' : ''} · {snapshots.length} snapshot{snapshots.length !== 1 ? 's' : ''}
-                  </p>
+                <div className="text-right flex items-center gap-1.5 text-sm">
+                  <button 
+                    onClick={() => setFilter(current => current === 'menu' ? 'all' : 'menu')}
+                    className={`transition-colors ${filter === 'menu' ? 'text-amber-900 font-bold' : 'text-amber-900/70 hover:text-amber-900/90'}`}
+                  >
+                    {menuEntries.length} meal{menuEntries.length !== 1 ? 's' : ''}
+                  </button>
+                  <span className="text-amber-900/70">·</span>
+                  <button 
+                    onClick={() => setFilter(current => current === 'snapshot' ? 'all' : 'snapshot')}
+                    className={`transition-colors ${filter === 'snapshot' ? 'text-amber-900 font-bold' : 'text-amber-900/70 hover:text-amber-900/90'}`}
+                  >
+                    {snapshots.length} snapshot{snapshots.length !== 1 ? 's' : ''}
+                  </button>
                 </div>
               </div>
 
