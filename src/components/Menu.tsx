@@ -400,7 +400,7 @@ export default function Menu() {
       </div>
 
       {/* Centered Menu Paper */}
-      <div className="absolute inset-0 flex items-center justify-center p-8 overflow-auto">
+      <div className="absolute inset-0 flex items-center justify-center p-4 md:p-8 overflow-auto">
         <div
           className="relative"
           style={{
@@ -430,7 +430,7 @@ export default function Menu() {
 
           {/* Paper content */}
           <div 
-            className="relative bg-white shadow-lg"
+            className="relative bg-white shadow-lg p-6 md:p-12 md:pb-10"
             style={{
               boxShadow: `
                 4px 4px 12px rgba(0,0,0,0.3), 
@@ -438,7 +438,6 @@ export default function Menu() {
                 inset 0 1px 0 rgba(255,255,255,0.8),
                 inset 0 -1px 0 rgba(0,0,0,0.05)
               `,
-              padding: '48px 48px 40px',
               minHeight: '420px',
             }}
           >
@@ -456,14 +455,14 @@ export default function Menu() {
             {/* Back button */}
             <a
               href="/"
-              className="absolute top-4 left-4 flex items-center gap-1.5 px-2 py-1.5 rounded text-stone-500 transition-all hover:bg-stone-100 text-sm"
+              className="absolute top-4 left-4 flex items-center gap-1.5 px-2 py-1.5 rounded text-stone-500 transition-all hover:bg-stone-100 text-sm z-20"
             >
               <ArrowLeft size={14} />
               <span>Back</span>
             </a>
 
             {/* Action buttons */}
-            <div className="absolute top-4 right-4 flex gap-2">
+            <div className="absolute top-4 right-4 flex gap-2 z-20">
               {currentUser && !isEditing && (
                 <button
                   onClick={() => setIsEditing(true)}
