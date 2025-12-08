@@ -455,18 +455,22 @@ export default function Menu() {
             {/* Back button */}
             <a
               href="/"
-              className="absolute top-4 left-4 flex items-center gap-1.5 px-2 py-1.5 rounded text-stone-500 transition-all hover:bg-stone-100 text-sm z-20"
+              className="absolute top-4 left-4 flex items-center gap-1.5 px-2 py-1.5 rounded text-stone-500 transition-all hover:bg-stone-100 text-sm z-50 pointer-events-auto"
+              style={{ position: 'absolute' }}
             >
               <ArrowLeft size={14} />
               <span>Back</span>
             </a>
 
             {/* Action buttons */}
-            <div className="absolute top-4 right-4 flex gap-2 z-20">
+            <div 
+              className="absolute top-4 right-4 flex gap-2 z-50 pointer-events-auto"
+              style={{ position: 'absolute' }}
+            >
               {currentUser && !isEditing && (
                 <button
                   onClick={() => setIsEditing(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-stone-100 text-stone-600 border border-stone-200 transition-all hover:bg-stone-200 text-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-stone-100 text-stone-600 border border-stone-200 transition-all hover:bg-stone-200 text-sm shadow-sm"
                 >
                   <Pencil size={12} />
                   Edit
