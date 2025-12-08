@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ArrowLeft, Plus, X, Camera, Upload, Check, Pencil } from 'lucide-react';
-import { uploadImage, getAllBoardItems, updateBoardItem, createBoardItem, createMenuEntry } from '../lib/supabase';
+import { ArrowLeft, Plus, X, Camera, Upload, Check, Pencil, LogIn } from 'lucide-react';
+import { uploadImage, getAllBoardItems, updateBoardItem, createBoardItem, createMenuEntry, getOrCreateUser } from '../lib/supabase';
 import { toast, Toaster } from 'sonner';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
+import { Label } from './ui/label';
 
 interface MenuItem {
   name: string;
@@ -57,6 +58,8 @@ export default function Menu() {
   const [showCaptureModal, setShowCaptureModal] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginName, setLoginName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -79,8 +82,35 @@ export default function Menu() {
     const savedUser = localStorage.getItem('pegboard-user');
     if (savedUser) {
       setCurrentUser(JSON.parse(savedUser));
+    } else {
+      // Check if we should auto-prompt for login? 
+      // Maybe not on menu page, let them click.
     }
   }, []);
+
+  const handleLogin = async () => {
+    if (!loginName.trim()) return;
+    
+    try {
+      const user = await getOrCreateUser(loginName.trim());
+      const formattedUser = {
+        id: user.id,
+        name: user.name,
+        color: user.color,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+      };
+      
+      setCurrentUser(formattedUser);
+      localStorage.setItem('pegboard-user', JSON.stringify(formattedUser));
+      toast.success(`Welcome, ${user.name}!`);
+      setShowLoginModal(false);
+      setLoginName('');
+    } catch (error) {
+      console.error('Login error:', error);
+      toast.error('Failed to log in');
+    }
+  };
 
   // Load menu from board items
   useEffect(() => {
@@ -467,6 +497,15 @@ export default function Menu() {
               className="absolute top-4 right-4 flex gap-2 z-50 pointer-events-auto"
               style={{ position: 'absolute' }}
             >
+              {!currentUser && (
+                <button
+                  onClick={() => setShowLoginModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-stone-100 text-stone-600 border border-stone-200 transition-all hover:bg-stone-200 text-sm shadow-sm"
+                >
+                  <LogIn size={12} />
+                  Sign In
+                </button>
+              )}
               {currentUser && !isEditing && (
                 <button
                   onClick={() => setIsEditing(true)}
@@ -675,6 +714,76 @@ export default function Menu() {
           </div>
         </div>
       </div>
+
+      {/* Login Modal */}
+      {showLoginModal && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => setShowLoginModal(false)}
+        >
+          <div
+            className="relative"
+            style={{
+              transform: `rotate(-1deg)`,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div 
+              className="absolute top-0 left-1/2 z-10 pointer-events-none"
+              style={{
+                width: '80px',
+                height: '35px',
+                transform: `translateX(-50%) translateY(-18px) rotate(2deg)`,
+              }}
+            >
+              <img 
+                src={tapeTexture}
+                alt="masking tape"
+                className="w-full h-full object-cover"
+                style={{
+                  filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
+                }}
+              />
+            </div>
+
+            <div 
+              className="relative bg-[#fef3c7] rounded-sm shadow-xl p-8 w-full max-w-sm"
+              style={{
+                boxShadow: `
+                  0 4px 8px rgba(0, 0, 0, 0.15),
+                  0 8px 20px rgba(0, 0, 0, 0.1),
+                  inset 0 -1px 2px rgba(0, 0, 0, 0.05)
+                `,
+              }}
+            >
+              <div className="space-y-5">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="login-name" className="text-amber-900/80">Your Name</Label>
+                    <Input
+                      id="login-name"
+                      value={loginName}
+                      onChange={(e) => setLoginName(e.target.value)}
+                      placeholder="Enter your name"
+                      onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                      autoFocus
+                      className="bg-white/60 border-amber-900/20 focus:border-amber-900/40"
+                    />
+                  </div>
+                  
+                  <button
+                    onClick={handleLogin}
+                    disabled={!loginName.trim()}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all hover:bg-amber-900/20 hover:border-amber-900/30 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Sign In to Edit
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Capture Modal */}
       {showCaptureModal && (

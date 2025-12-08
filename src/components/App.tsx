@@ -7,7 +7,6 @@ import { Toaster } from './ui/sonner';
 import { toast } from 'sonner';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { BoardItem, User } from './types';
-import { OrientationPrompt } from './OrientationPrompt';
 import { 
   supabase, 
   getAllBoardItems, 
@@ -675,9 +674,6 @@ export default function App() {
         <Toaster />
         </div>
       </DndProvider>
-      
-      {/* Orientation prompt - render last to be on top */}
-      <OrientationPrompt />
     </>
   );
 }
