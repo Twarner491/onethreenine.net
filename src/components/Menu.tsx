@@ -5,8 +5,7 @@ import { toast, Toaster } from 'sonner';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
-
-const MOBILE_BREAKPOINT = 768;
+import { useIsMobile } from './ui/use-mobile';
 
 interface MenuItem {
   name: string;
@@ -62,19 +61,11 @@ export default function Menu() {
   const [isEditing, setIsEditing] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginName, setLoginName] = useState('');
-  const [isMobile, setIsMobile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Check if mobile on mount and resize
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  // Use robust mobile detection
+  const isMobile = useIsMobile();
 
   // Select random textures once
   const tapeTexture = useMemo(() => 

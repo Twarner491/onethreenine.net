@@ -5,6 +5,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import type { User as UserType } from './types';
 import { toast } from 'sonner';
+import { useIsMobile, detectMobile } from './ui/use-mobile';
 
 interface ToolbarProps {
   onAddItem: (type: 'note' | 'photo' | 'list' | 'receipt') => void;
@@ -32,19 +33,19 @@ const maskingTapeTextures = [
   '/assets/images/maskingtape/f08402eb-b275-4034-8d66-4981f93ad679_rw_1200.png',
 ];
 
-const MOBILE_BREAKPOINT = 768;
-
 export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMode = false, isUserViewerMode = false, onToggleViewerMode, isJiggleMode = false, onExitJiggleMode }: ToolbarProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isToolsExpanded, setIsToolsExpanded] = useState(false);
   const [isMobileFabOpen, setIsMobileFabOpen] = useState(false);
   const [loginName, setLoginName] = useState('');
-  const [isMobile, setIsMobile] = useState(false);
+  
+  // Use robust mobile detection hook
+  const isMobile = useIsMobile();
   
   const getInitialPosition = () => {
     if (typeof window === 'undefined') return { x: 32, y: 500 };
     
-    const mobile = window.innerWidth < MOBILE_BREAKPOINT;
+    const mobile = detectMobile();
     if (mobile) {
       return { x: window.innerWidth / 2 - 90, y: window.innerHeight - 150 };
     }
@@ -53,20 +54,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
   
   const [position, setPosition] = useState(getInitialPosition());
   const [rotation, setRotation] = useState(-2);
-  
-  // Check mobile state on mount and resize
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobile = window.innerWidth < MOBILE_BREAKPOINT;
-      setIsMobile(mobile);
-    };
-    
-    // Check immediately on mount
-    checkMobile();
-    
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   useEffect(() => {
     const savedPosition = localStorage.getItem('toolbar-position');
@@ -76,7 +63,7 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
     if (savedPosition && currentUser) {
       const parsed = JSON.parse(savedPosition);
       const wasMobile = savedViewport === 'mobile';
-      const isCurrentlyMobile = window.innerWidth < 768;
+      const isCurrentlyMobile = detectMobile();
       
       if (wasMobile !== isCurrentlyMobile) {
         setPosition(getInitialPosition());

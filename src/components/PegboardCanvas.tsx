@@ -2,6 +2,7 @@ import type { BoardItem, User } from './types';
 import { PinnedItem } from './PinnedItem';
 import { CustomDragLayer } from './CustomDragLayer';
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useIsMobile } from './ui/use-mobile';
 
 interface PegboardCanvasProps {
   items: BoardItem[];
@@ -26,17 +27,13 @@ const TARGET_ASPECT_RATIO = 16 / 9;
 const WORKSPACE_WIDTH = 1920; // Base width for element positioning
 const WORKSPACE_HEIGHT = 1080; // Base height for element positioning (16:9)
 
-// Mobile detection - purely width-based so it works when resizing browser for testing
-const MOBILE_BREAKPOINT = 768;
-const isMobileDevice = () => {
-  if (typeof window === 'undefined') return false;
-  return window.innerWidth < MOBILE_BREAKPOINT;
-};
-
 export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, users, currentUserId, selectedItemId, onSelectItem, isViewerMode, isJiggleMode, onEnterJiggleMode, onExitJiggleMode, isMobile: isMobileProp, onBringToFront, onSendToBack }: PegboardCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  
+  // Use robust mobile detection (use prop if provided, otherwise detect)
+  const detectedMobile = useIsMobile();
+  const isMobile = isMobileProp !== undefined ? isMobileProp : detectedMobile;
   
   // Base scale (fits workspace to screen)
   const [baseScale, setBaseScale] = useState(1);
@@ -100,9 +97,8 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
       const viewportAspect = viewportWidth / viewportHeight;
-      const mobile = isMobileDevice();
-
-      setIsMobile(mobile);
+      // Use the isMobile state which is already updated by the hook
+      const mobile = isMobile;
 
       let newBaseScale = 1;
       let workspaceWidth, workspaceHeight;
@@ -146,7 +142,7 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
     updateLayout();
     window.addEventListener('resize', updateLayout);
     return () => window.removeEventListener('resize', updateLayout);
-  }, []);
+  }, [isMobile]);
 
   // Touch event handlers for pan and pinch-to-zoom
   const handleTouchStart = useCallback((e: React.TouchEvent) => {

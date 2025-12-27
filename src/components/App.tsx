@@ -19,6 +19,7 @@ import {
   deleteBoardItem 
 } from '../lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { useIsMobile, detectMobile } from './ui/use-mobile';
 
 // Debounce utility
 function debounce<T extends (...args: any[]) => void>(func: T, wait: number): T {
@@ -34,8 +35,6 @@ const isTouchDevice = () => {
   if (typeof window === 'undefined') return false;
   return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 };
-
-const MOBILE_BREAKPOINT = 768;
 
 // Undo history entry type
 interface UndoEntry {
@@ -54,20 +53,18 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [showViewerSettings, setShowViewerSettings] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  // Use robust mobile detection hook
+  const isMobile = useIsMobile();
+  
   const [isUserViewerMode, setIsUserViewerMode] = useState(() => {
     // Auto-start in viewer mode on mobile for easier browsing
     if (typeof window !== 'undefined') {
-      return window.innerWidth < MOBILE_BREAKPOINT;
+      return detectMobile();
     }
     return false;
   });
   const [isJiggleMode, setIsJiggleMode] = useState(false);
-  const [isMobile, setIsMobile] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < MOBILE_BREAKPOINT;
-    }
-    return false;
-  });
+  
   const { hasSeenOnboarding: hasSeenMobileOnboarding, markAsSeen: markMobileAsSeen } = useMobileOnboarding();
   const { hasSeenOnboarding: hasSeenDesktopOnboarding, markAsSeen: markDesktopAsSeen } = useDesktopOnboarding();
   
@@ -125,17 +122,13 @@ export default function App() {
     }
   }, []);
 
-  // Detect mobile and show onboarding
+  // Update viewer mode when mobile state changes
   useEffect(() => {
-    const checkMobile = () => {
-      const mobile = window.innerWidth < MOBILE_BREAKPOINT;
-      setIsMobile(mobile);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+    // If transitioning to mobile, enable viewer mode by default
+    if (isMobile) {
+      setIsUserViewerMode(true);
+    }
+  }, [isMobile]);
 
   // Show onboarding for users who haven't seen it
   useEffect(() => {

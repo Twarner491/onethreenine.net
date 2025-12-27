@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
-
-const MOBILE_BREAKPOINT = 768;
+import { useIsMobile } from './ui/use-mobile';
 
 const maskingTapeTextures = [
   '/assets/images/maskingtape/10c87e82-99cf-4df0-b47b-8f650d4b21e9_rw_1920.png',
@@ -22,24 +21,16 @@ const DEFAULT_TAPE_INDEX = 0;
 const DEFAULT_ROTATION = 0;
 
 export default function About() {
-  const [isMobile, setIsMobile] = useState(false);
   const [tapeTexture, setTapeTexture] = useState(maskingTapeTextures[DEFAULT_TAPE_INDEX]);
   const [tapeRotation, setTapeRotation] = useState(DEFAULT_ROTATION);
+  
+  // Use robust mobile detection
+  const isMobile = useIsMobile();
 
   // Set random values only on client to avoid hydration mismatch
   useEffect(() => {
     setTapeTexture(maskingTapeTextures[Math.floor(Math.random() * maskingTapeTextures.length)]);
     setTapeRotation((Math.random() - 0.5) * 10);
-  }, []);
-
-  // Check if mobile on mount and resize
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   return (

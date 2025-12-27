@@ -6,8 +6,7 @@ import type { BoardItem, User } from './types';
 import { PinnedItem } from './PinnedItem';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-
-const MOBILE_BREAKPOINT = 768;
+import { useIsMobile } from './ui/use-mobile';
 
 interface Snapshot {
   id: string;
@@ -63,24 +62,16 @@ export default function Timeline() {
   const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(null);
   const [selectedMenu, setSelectedMenu] = useState<MenuEntry | null>(null);
   const [isCreatingSnapshot, setIsCreatingSnapshot] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const [activeContextMenuId, setActiveContextMenuId] = useState<string | null>(null);
+  
+  // Use robust mobile detection
+  const isMobile = useIsMobile();
   
   // Mobile pan/zoom state for snapshot view
   const [mobileScale, setMobileScale] = useState(1);
   const [mobileOffset, setMobileOffset] = useState({ x: 0, y: 0 });
   const lastTouchRef = useRef<{ x: number; y: number } | null>(null);
   const lastPinchDistanceRef = useRef<number | null>(null);
-  
-  // Check mobile state
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
   
   // Reset pan/zoom when snapshot changes
   useEffect(() => {
