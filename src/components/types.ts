@@ -9,6 +9,8 @@ export interface BoardItem {
   created_by?: string | null;
   created_at?: string;
   updated_at?: string;
+  updated_by?: string | null;
+  z_index?: number;
 }
 
 export interface User {

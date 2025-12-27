@@ -1,17 +1,21 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useDrag } from 'react-dnd';
-import { StickyNote, Image, List, Receipt, Calendar, LogOut, Plus, X, Settings } from 'lucide-react';
+import { StickyNote, Image, List, Receipt, LogOut, Plus, X, Settings, Eye, Pencil, HelpCircle } from 'lucide-react';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import type { User as UserType } from './types';
 import { toast } from 'sonner';
 
 interface ToolbarProps {
-  onAddItem: (type: 'note' | 'photo' | 'list' | 'receipt' | 'event') => void;
+  onAddItem: (type: 'note' | 'photo' | 'list' | 'receipt') => void;
   currentUser: UserType | null;
   onLogin: (userData: { name: string }) => void;
   onLogout: () => void;
   isViewerMode?: boolean;
+  isUserViewerMode?: boolean;
+  onToggleViewerMode?: () => void;
+  isJiggleMode?: boolean;
+  onExitJiggleMode?: () => void;
 }
 
 const maskingTapeTextures = [
@@ -28,17 +32,20 @@ const maskingTapeTextures = [
   '/assets/images/maskingtape/f08402eb-b275-4034-8d66-4981f93ad679_rw_1200.png',
 ];
 
-export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMode = false }: ToolbarProps) {
+const MOBILE_BREAKPOINT = 768;
+
+export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMode = false, isUserViewerMode = false, onToggleViewerMode, isJiggleMode = false, onExitJiggleMode }: ToolbarProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isToolsExpanded, setIsToolsExpanded] = useState(false);
+  const [isMobileFabOpen, setIsMobileFabOpen] = useState(false);
   const [loginName, setLoginName] = useState('');
-  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(false);
   
   const getInitialPosition = () => {
     if (typeof window === 'undefined') return { x: 32, y: 500 };
     
-    const isMobile = window.innerWidth < 768;
-    if (isMobile) {
+    const mobile = window.innerWidth < MOBILE_BREAKPOINT;
+    if (mobile) {
       return { x: window.innerWidth / 2 - 90, y: window.innerHeight - 150 };
     }
     return { x: 32, y: window.innerHeight - 200 };
@@ -47,13 +54,18 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
   const [position, setPosition] = useState(getInitialPosition());
   const [rotation, setRotation] = useState(-2);
   
+  // Check mobile state on mount and resize
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
+    const checkMobile = () => {
+      const mobile = window.innerWidth < MOBILE_BREAKPOINT;
+      setIsMobile(mobile);
     };
     
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    // Check immediately on mount
+    checkMobile();
+    
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   useEffect(() => {
@@ -98,6 +110,10 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
     (Math.random() - 0.5) * 10,
     []
   );
+  const fabTapeTexture = useMemo(() => 
+    maskingTapeTextures[Math.floor(Math.random() * maskingTapeTextures.length)],
+    []
+  );
 
   const [{ isDragging }, drag] = useDrag(() => ({
     type: 'toolbar',
@@ -119,7 +135,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
     { type: 'photo' as const, icon: Image, label: 'Photo' },
     { type: 'list' as const, icon: List, label: 'List' },
     { type: 'receipt' as const, icon: Receipt, label: 'Receipt' },
-    { type: 'event' as const, icon: Calendar, label: 'Event' },
   ];
 
   const handleLogin = () => {
@@ -138,19 +153,20 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
 
   if (!currentUser) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div data-toolbar className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
-          className="relative"
+          className="relative w-full"
           style={{
             transform: `rotate(-2deg)`,
+            maxWidth: isMobile ? '320px' : '400px',
           }}
         >
           <div 
             className="absolute top-0 left-1/2 z-10 pointer-events-none"
             style={{
-              width: '80px',
-              height: '35px',
-              transform: `translateX(-50%) translateY(-18px) rotate(${tapeRotation}deg)`,
+              width: isMobile ? '60px' : '80px',
+              height: isMobile ? '26px' : '35px',
+              transform: `translateX(-50%) translateY(-${isMobile ? 14 : 18}px) rotate(${tapeRotation}deg)`,
             }}
           >
             <img 
@@ -173,11 +189,15 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
                 0 8px 20px rgba(0, 0, 0, 0.1),
                 inset 0 -1px 2px rgba(0, 0, 0, 0.05)
               `,
-              width: '400px',
-              padding: '48px 64px',
+              width: '100%',
+              padding: isMobile ? '32px 24px' : '48px 64px',
             }}
           >
             <div className="space-y-5">
+              <div className="text-center mb-4">
+                <h2 className="text-lg font-medium text-amber-900/90">Welcome</h2>
+                <p className="text-sm text-amber-900/60 mt-1">Sign in to add to the board</p>
+              </div>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name" className="text-amber-900/80">Your Name</Label>
@@ -189,13 +209,14 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
                     onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                     autoFocus
                     className="bg-white/60 border-amber-900/20 focus:border-amber-900/40"
+                    style={{ fontSize: '16px' }} // Prevents iOS zoom on focus
                   />
                 </div>
                 
                 <button
                   onClick={handleLogin}
                   disabled={!loginName.trim()}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-lg bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all hover:bg-amber-900/20 hover:border-amber-900/30 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-lg bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all hover:bg-amber-900/20 hover:border-amber-900/30 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Sign In
                 </button>
@@ -207,10 +228,491 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
     );
   }
 
+  // Jiggle/Arrange mode - show "Done" button for mobile
+  if (isJiggleMode && isMobile) {
+    return (
+      <div 
+        style={{
+          position: 'fixed',
+          bottom: '24px',
+          left: '50%',
+          transform: 'translateX(-50%) rotate(-1deg)',
+          zIndex: 9999,
+        }}
+      >
+        <button
+          onClick={onExitJiggleMode}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '14px 24px',
+            borderRadius: '12px',
+            backgroundImage: `url(${fabTapeTexture})`,
+            backgroundSize: '500% 500%',
+            backgroundPosition: 'center',
+            color: '#78350f',
+            fontSize: '15px',
+            fontWeight: 600,
+            fontFamily: 'Georgia, serif',
+            border: 'none',
+            cursor: 'pointer',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+          }}
+        >
+          <span style={{ fontSize: '16px' }}>✓</span>
+          Done Arranging
+        </button>
+        
+        {/* Hint text */}
+        <div 
+          style={{
+            textAlign: 'center',
+            marginTop: '12px',
+            fontSize: '13px',
+            color: 'rgba(255,255,255,0.85)',
+            textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+            fontFamily: 'Georgia, serif',
+          }}
+        >
+          Drag items to move • Tap elsewhere to finish
+        </div>
+      </div>
+    );
+  }
+
+  // MonaLisa viewer mode - no toolbar at all
   if (isViewerMode) {
     return null;
   }
 
+  // User-initiated viewer mode - show minimal exit button
+  if (isUserViewerMode) {
+    // Mobile viewer mode - floating buttons at bottom
+    if (isMobile) {
+      return (
+        <>
+          {/* Settings backdrop */}
+          {isSettingsOpen && (
+            <div 
+              className="fixed inset-0 bg-black/60"
+              style={{ zIndex: 10000 }}
+              onClick={() => setIsSettingsOpen(false)}
+            />
+          )}
+
+          {/* Mobile viewer mode buttons - masking tape styled, smaller and rounder */}
+          <div 
+            style={{
+              position: 'fixed',
+              bottom: '24px',
+              right: '24px',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+            }}
+          >
+            {/* Settings button - tape texture, smaller and rounder */}
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                backgroundImage: `url(${fabTapeTexture})`,
+                backgroundSize: '400% 400%',
+                backgroundPosition: 'center',
+                boxShadow: '0 3px 10px rgba(0,0,0,0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <Settings size={18} color="#78350f" />
+            </button>
+
+            {/* Exit viewer mode button - tape texture, rounder */}
+            <button
+              onClick={onToggleViewerMode}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '12px 16px',
+                borderRadius: '12px',
+                backgroundImage: `url(${fabTapeTexture})`,
+                backgroundSize: '500% 500%',
+                backgroundPosition: 'center',
+                boxShadow: '0 3px 10px rgba(0,0,0,0.2)',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <Eye size={16} color="#78350f" />
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#78350f', fontFamily: 'Georgia, serif' }}>Viewing</span>
+              <Pencil size={14} color="#78350f" />
+            </button>
+          </div>
+
+          {/* Mobile Settings Sheet */}
+          {isSettingsOpen && (
+            <div 
+              style={{
+                position: 'fixed',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                background: '#fef3c7',
+                borderTopLeftRadius: '16px',
+                borderTopRightRadius: '16px',
+                boxShadow: '0 -8px 32px rgba(0,0,0,0.3)',
+              zIndex: 10001,
+              padding: '28px 28px 44px',
+              animation: 'slideUpSheet 0.3s ease-out',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag handle indicator */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '28px' }}>
+              <div 
+                style={{
+                  width: '40px',
+                  height: '4px',
+                  backgroundColor: 'rgba(120, 53, 15, 0.2)',
+                  borderRadius: '2px',
+                }}
+              />
+            </div>
+
+            {/* User info */}
+            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+              <div style={{ fontSize: '18px', fontWeight: 600, color: '#78350f' }}>{currentUser?.name}</div>
+              <div style={{ fontSize: '13px', color: '#92400e', marginTop: '6px' }}>Viewer Mode</div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <button
+                  onClick={() => {
+                    setIsSettingsOpen(false);
+                    window.location.hash = 'instructions';
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-lg bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all active:bg-amber-900/20 font-medium text-sm"
+                >
+                  <HelpCircle size={16} />
+                  Help & Instructions
+                </button>
+
+                <button
+                  onClick={() => {
+                    onLogout();
+                    setIsSettingsOpen(false);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-lg bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all active:bg-amber-900/20 font-medium text-sm"
+                >
+                  <LogOut size={16} />
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Animation keyframes */}
+          <style>{`
+            @keyframes slideUpSheet {
+              from {
+                transform: translateY(100%);
+                opacity: 0.8;
+              }
+              to {
+                transform: translateY(0);
+                opacity: 1;
+              }
+            }
+          `}</style>
+        </>
+      );
+    }
+
+    // Desktop viewer mode
+    return (
+      <div
+        className="fixed z-50"
+        style={{
+          left: position.x,
+          top: position.y,
+          transform: `rotate(${rotation}deg)`,
+          transformOrigin: 'top left',
+        }}
+      >
+        <div 
+          className="absolute top-0 left-1/2 z-10 pointer-events-none"
+          style={{
+            width: '80px',
+            height: '35px',
+            transform: `translateX(-50%) translateY(-18px) rotate(${tapeRotation}deg)`,
+          }}
+        >
+          <img 
+            src={tapeTexture}
+            alt="masking tape"
+            className="w-full h-full object-cover"
+            style={{
+              filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
+            }}
+          />
+        </div>
+
+        <div 
+          className="relative flex flex-col"
+          style={{
+            background: '#fef3c7',
+            borderRadius: '2px',
+            boxShadow: `
+              0 4px 8px rgba(0, 0, 0, 0.15),
+              0 8px 20px rgba(0, 0, 0, 0.1),
+              inset 0 -1px 2px rgba(0, 0, 0, 0.05)
+            `,
+            padding: '12px 16px',
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-amber-900/70">
+              <Eye size={14} />
+              <span className="text-xs font-medium">Viewing</span>
+            </div>
+            <button
+              onClick={onToggleViewerMode}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all hover:bg-amber-900/20 hover:border-amber-900/30 text-xs font-medium"
+            >
+              <Pencil size={12} />
+              Edit
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mobile FAB UI
+  if (isMobile) {
+    return (
+      <>
+        {/* Mobile FAB backdrop when open */}
+        {isMobileFabOpen && (
+          <div 
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              zIndex: 9998,
+            }}
+            onClick={() => setIsMobileFabOpen(false)}
+          />
+        )}
+
+        {/* Settings backdrop */}
+        {isSettingsOpen && (
+          <div 
+            style={{
+              position: 'fixed',
+              inset: 0,
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              zIndex: 10000,
+            }}
+            onClick={() => setIsSettingsOpen(false)}
+          />
+        )}
+
+        {/* Mobile FAB and menu */}
+        <div 
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            zIndex: 9999,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            gap: '12px',
+          }}
+        >
+          {/* Expanded tool options - masking tape styled */}
+          {isMobileFabOpen && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '8px' }}>
+              {tools.map((tool, index) => (
+                <button
+                  key={tool.type}
+                  onClick={() => {
+                    handleAddItem(tool.type);
+                    setIsMobileFabOpen(false);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '14px 18px',
+                    borderRadius: '10px',
+                    backgroundImage: `url(${fabTapeTexture})`,
+                    backgroundSize: '400% 400%',
+                    backgroundPosition: `center ${index * 25}%`,
+                    boxShadow: '0 3px 10px rgba(0,0,0,0.18)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    minHeight: '48px',
+                    transform: `rotate(${(index - 1.5) * 0.5}deg)`,
+                  }}
+                >
+                  <tool.icon size={20} color="#78350f" />
+                  <span style={{ fontSize: '15px', fontWeight: 600, color: '#78350f', fontFamily: 'Georgia, serif', paddingRight: '8px' }}>{tool.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* FAB row with settings and add buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* Settings button - tape texture, smaller and rounder */}
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '12px',
+                backgroundImage: `url(${fabTapeTexture})`,
+                backgroundSize: '400% 400%',
+                backgroundPosition: 'center',
+                boxShadow: '0 3px 10px rgba(0,0,0,0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <Settings size={18} color="#78350f" />
+            </button>
+
+            {/* Main FAB - Add button with tape texture, smaller and rounder */}
+            <button
+              onClick={() => setIsMobileFabOpen(!isMobileFabOpen)}
+              style={{
+                width: '50px',
+                height: '50px',
+                borderRadius: '14px',
+                backgroundImage: `url(${fabTapeTexture})`,
+                backgroundSize: '350% 350%',
+                backgroundPosition: 'center',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                cursor: 'pointer',
+                transform: isMobileFabOpen ? 'rotate(45deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s ease-out',
+              }}
+            >
+              <Plus size={24} color="#78350f" strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Settings Sheet - paper texture with slide-up animation */}
+        {isSettingsOpen && (
+          <div 
+            style={{
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: '#fef3c7',
+              borderTopLeftRadius: '16px',
+              borderTopRightRadius: '16px',
+              boxShadow: '0 -8px 32px rgba(0,0,0,0.3)',
+              zIndex: 10001,
+              padding: '28px 28px 44px',
+              animation: 'slideUpSheet 0.3s ease-out',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag handle indicator */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '28px' }}>
+              <div 
+                style={{
+                  width: '40px',
+                  height: '4px',
+                  backgroundColor: 'rgba(120, 53, 15, 0.2)',
+                  borderRadius: '2px',
+                }}
+              />
+            </div>
+
+            {/* User info */}
+            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+              <div style={{ fontSize: '18px', fontWeight: 600, color: '#78350f' }}>{currentUser?.name}</div>
+              <div style={{ fontSize: '13px', color: '#92400e', marginTop: '6px' }}>Signed in</div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <button
+                onClick={() => {
+                  onToggleViewerMode?.();
+                  setIsSettingsOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-lg bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all active:bg-amber-900/20 font-medium text-sm"
+              >
+                <Eye size={16} />
+                Enter Viewer Mode
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsSettingsOpen(false);
+                  window.location.hash = 'instructions';
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-lg bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all active:bg-amber-900/20 font-medium text-sm"
+              >
+                <HelpCircle size={16} />
+                Help & Instructions
+              </button>
+
+              <button
+                onClick={() => {
+                  onLogout();
+                  setIsSettingsOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-lg bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all active:bg-amber-900/20 font-medium text-sm"
+              >
+                <LogOut size={16} />
+                Sign Out
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Animation keyframes */}
+        <style>{`
+          @keyframes slideUpSheet {
+            from {
+              transform: translateY(100%);
+              opacity: 0.8;
+            }
+            to {
+              transform: translateY(0);
+              opacity: 1;
+            }
+          }
+        `}</style>
+      </>
+    );
+  }
+
+  // Desktop toolbar UI
   return (
     <>
       {isSettingsOpen && (
@@ -223,11 +725,12 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
 
       <div
         ref={drag as unknown as React.Ref<HTMLDivElement>}
+        data-toolbar
         className="fixed z-50 touch-none"
         style={{
           left: position.x,
           top: position.y,
-          transform: `rotate(${rotation}deg) scale(${isMobile ? 0.5 : 1})`,
+          transform: `rotate(${rotation}deg)`,
           transformOrigin: 'top left',
           cursor: isDragging ? 'grabbing' : 'move',
           opacity: isDragging ? 0.8 : 1,
@@ -346,30 +849,117 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
                 0 8px 20px rgba(0, 0, 0, 0.1),
                 inset 0 -1px 2px rgba(0, 0, 0, 0.05)
               `,
-              width: '400px',
-              padding: '48px 64px',
+              width: '380px',
+              padding: '44px 48px 44px',
             }}
           >
-            <div className="space-y-8">
-              <div className="space-y-3">
-                <h3 className="font-medium text-sm text-amber-900/80 mb-3">Signed in as</h3>
-                <div className="text-center">
-                  <div className="text-xl font-medium text-amber-900/90">{currentUser?.name}</div>
-                </div>
-              </div>
+            {/* Close button */}
+            <button
+              onClick={() => setIsSettingsOpen(false)}
+              style={{
+                position: 'absolute',
+                top: '14px',
+                right: '14px',
+                width: '34px',
+                height: '34px',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(120, 53, 15, 0.08)',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(120, 53, 15, 0.15)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(120, 53, 15, 0.08)'}
+            >
+              <X size={16} color="#78350f" />
+            </button>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    onLogout();
-                    setIsSettingsOpen(false);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3.5 rounded-lg bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all hover:bg-amber-900/20 hover:border-amber-900/30 font-medium text-sm"
-                >
-                  <LogOut size={14} />
-                  Sign Out
-                </button>
+            {/* Settings title */}
+            <h2 
+              style={{
+                fontSize: '11px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.15em',
+                color: '#92400e',
+                marginBottom: '28px',
+                fontWeight: 500,
+              }}
+            >
+              Settings
+            </h2>
+
+            {/* User section */}
+            <div style={{ marginBottom: '32px' }}>
+              <div 
+                style={{
+                  fontSize: '12px',
+                  color: '#a16207',
+                  marginBottom: '8px',
+                }}
+              >
+                Signed in as
               </div>
+              <div 
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 600,
+                  color: '#78350f',
+                  fontFamily: 'Georgia, serif',
+                }}
+              >
+                {currentUser?.name}
+              </div>
+            </div>
+
+            {/* Divider */}
+            <div style={{ height: '1px', backgroundColor: 'rgba(120, 53, 15, 0.15)', marginBottom: '28px' }} />
+
+            {/* Actions */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Viewer Mode */}
+              <button
+                onClick={() => {
+                  onToggleViewerMode?.();
+                  setIsSettingsOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-lg bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all hover:bg-amber-900/15 hover:border-amber-900/25 font-medium text-sm"
+              >
+                <Eye size={16} />
+                Enter Viewer Mode
+              </button>
+              <p className="text-xs text-amber-800/60 text-center -mt-1 mb-2">
+                View-only mode for browsing
+              </p>
+
+              {/* Help & Instructions */}
+              <button
+                onClick={() => {
+                  setIsSettingsOpen(false);
+                  window.location.hash = 'instructions';
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-lg bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all hover:bg-amber-900/15 hover:border-amber-900/25 font-medium text-sm"
+              >
+                <HelpCircle size={16} />
+                Help & Instructions
+              </button>
+
+              {/* Divider */}
+              <div style={{ height: '1px', backgroundColor: 'rgba(120, 53, 15, 0.1)', margin: '12px 0' }} />
+
+              {/* Sign Out */}
+              <button
+                onClick={() => {
+                  onLogout();
+                  setIsSettingsOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-4 rounded-lg bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all hover:bg-amber-900/15 hover:border-amber-900/25 font-medium text-sm"
+              >
+                <LogOut size={16} />
+                Sign Out
+              </button>
             </div>
           </div>
         </div>

@@ -131,6 +131,8 @@ export function PolaroidPhoto({ content, onChange, isEditMode, userId }: Polaroi
             alt={content.caption || 'Polaroid photo'}
             className="w-full h-full object-cover"
             crossOrigin="anonymous"
+            draggable={false}
+            style={{ userSelect: 'none', pointerEvents: 'none' }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-400">

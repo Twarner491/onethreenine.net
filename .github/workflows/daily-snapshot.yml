@@ -6,10 +6,18 @@ on:
     - cron: '59 23 * * *'
   workflow_dispatch:  # Allow manual triggering
 
+permissions:
+  contents: write  # Needed to commit thumbnail back to repo
+
 jobs:
   create-snapshot:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create Daily Snapshot via Supabase RPC
         env:
           SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
@@ -39,4 +47,107 @@ jobs:
           fi
           
           echo "✅ Snapshot created successfully!"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Puppeteer
+        run: npm install puppeteer
+
+      - name: Generate Thumbnail Screenshot
+        env:
+          SITE_URL: https://onethreenine.net
+        run: |
+          node << 'EOF'
+          const puppeteer = require('puppeteer');
+          const fs = require('fs');
+          const path = require('path');
+          
+          (async () => {
+            console.log('Launching browser...');
+            const browser = await puppeteer.launch({
+              headless: 'new',
+              args: ['--no-sandbox', '--disable-setuid-sandbox']
+            });
+            
+            const page = await browser.newPage();
+            
+            // Set viewport to match the board's 16:9 aspect ratio
+            // Using 1920x1080 as the capture size, will be the final image size
+            await page.setViewport({ width: 1920, height: 1080 });
+            
+            console.log('Navigating to site...');
+            await page.goto(process.env.SITE_URL, { 
+              waitUntil: 'networkidle2',
+              timeout: 60000 
+            });
+            
+            // Wait for the board to fully render (wait for items to load)
+            console.log('Waiting for board to render...');
+            await page.waitForSelector('[data-corkboard]', { timeout: 30000 }).catch(() => {
+              console.log('Corkboard selector not found, waiting additional time...');
+            });
+            
+            // Give extra time for images and content to load
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            
+            // Hide any UI elements (toolbar, etc.) for clean screenshot
+            await page.evaluate(() => {
+              // Hide toolbar and any overlays
+              const toolbar = document.querySelector('[data-toolbar]');
+              if (toolbar) toolbar.style.display = 'none';
+              
+              // Hide any modals or dialogs
+              const modals = document.querySelectorAll('[role="dialog"]');
+              modals.forEach(m => m.style.display = 'none');
+              
+              // Hide login overlay if visible
+              const loginOverlay = document.querySelector('.fixed.inset-0.z-50');
+              if (loginOverlay) loginOverlay.style.display = 'none';
+            });
+            
+            // Take screenshot
+            console.log('Taking screenshot...');
+            const screenshotPath = path.join(process.cwd(), 'public', 'assets', 'images', 'thumb.png');
+            
+            await page.screenshot({
+              path: screenshotPath,
+              type: 'png',
+              fullPage: false
+            });
+            
+            console.log(`✅ Thumbnail saved to: ${screenshotPath}`);
+            
+            // Also save as jpg for compatibility
+            const jpgPath = path.join(process.cwd(), 'public', 'assets', 'images', 'thumb.jpg');
+            await page.screenshot({
+              path: jpgPath,
+              type: 'jpeg',
+              quality: 90,
+              fullPage: false
+            });
+            
+            console.log(`✅ Thumbnail (JPG) saved to: ${jpgPath}`);
+            
+            await browser.close();
+            console.log('Browser closed.');
+          })();
+          EOF
+
+      - name: Commit and push thumbnail
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Check if there are changes to commit
+          if git diff --quiet public/assets/images/thumb.png public/assets/images/thumb.jpg; then
+            echo "No changes to thumbnail, skipping commit"
+          else
+            git add public/assets/images/thumb.png public/assets/images/thumb.jpg
+            git commit -m "📸 Update daily thumbnail - $(date -u +%Y-%m-%d)"
+            git push
+            echo "✅ Thumbnail committed and pushed!"
+          fi
 

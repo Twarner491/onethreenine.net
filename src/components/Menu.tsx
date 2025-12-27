@@ -6,6 +6,8 @@ import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 
+const MOBILE_BREAKPOINT = 768;
+
 interface MenuItem {
   name: string;
   description?: string;
@@ -60,8 +62,19 @@ export default function Menu() {
   const [isEditing, setIsEditing] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginName, setLoginName] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Check if mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Select random textures once
   const tapeTexture = useMemo(() => 
@@ -82,9 +95,6 @@ export default function Menu() {
     const savedUser = localStorage.getItem('pegboard-user');
     if (savedUser) {
       setCurrentUser(JSON.parse(savedUser));
-    } else {
-      // Check if we should auto-prompt for login? 
-      // Maybe not on menu page, let them click.
     }
   }, []);
 
@@ -327,7 +337,7 @@ export default function Menu() {
       const clearedContent = {
         ...menuContent,
         sections: clearedSections,
-        photos: [] // Clear photos from the current menu state too if any
+        photos: []
       };
       
       // Save the cleared menu to the board
@@ -429,13 +439,141 @@ export default function Menu() {
         />
       </div>
 
-      {/* Centered Menu Paper */}
-      <div className="absolute inset-0 flex items-center justify-center p-4 md:p-8 overflow-auto">
+      {/* Mobile Back FAB */}
+      {isMobile && (
+        <a
+          href="/"
+          style={{
+            position: 'fixed',
+            zIndex: 50,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            top: '12px',
+            left: '12px',
+            width: '40px',
+            height: '40px',
+            borderRadius: '10px',
+            background: `url(${tapeTexture})`,
+            backgroundSize: '200% 200%',
+            backgroundPosition: 'center',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            textDecoration: 'none',
+          }}
+        >
+          <ArrowLeft size={18} style={{ color: '#44250f' }} />
+        </a>
+      )}
+
+      {/* Mobile Action FABs */}
+      {isMobile && (
+        <div
+          style={{
+            position: 'fixed',
+            zIndex: 50,
+            top: '12px',
+            right: '12px',
+            display: 'flex',
+            gap: '8px',
+          }}
+        >
+          {!currentUser && (
+            <button
+              onClick={() => setShowLoginModal(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: `url(${tapeTexture})`,
+                backgroundSize: '200% 200%',
+                backgroundPosition: 'center',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                border: 'none',
+              }}
+            >
+              <LogIn size={18} style={{ color: '#44250f' }} />
+            </button>
+          )}
+          {currentUser && !isEditing && (
+            <button
+              onClick={() => setIsEditing(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: `url(${tapeTexture})`,
+                backgroundSize: '200% 200%',
+                backgroundPosition: 'center',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                border: 'none',
+              }}
+            >
+              <Pencil size={18} style={{ color: '#44250f' }} />
+            </button>
+          )}
+          {currentUser && isEditing && (
+            <button
+              onClick={handleDoneEditing}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: `url(${tapeTexture})`,
+                backgroundSize: '200% 200%',
+                backgroundPosition: 'center',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                border: 'none',
+              }}
+            >
+              <Check size={18} style={{ color: '#44250f' }} />
+            </button>
+          )}
+          {currentUser && hasContent && (
+            <button
+              onClick={() => setShowCaptureModal(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                borderRadius: '10px',
+                background: `url(${tapeTexture})`,
+                backgroundSize: '200% 200%',
+                backgroundPosition: 'center',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                border: 'none',
+              }}
+            >
+              <Camera size={18} style={{ color: '#44250f' }} />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Centered Menu Paper - Scrollable on mobile, centered on desktop */}
+      <div 
+        className="absolute inset-0 flex justify-center overflow-auto"
+        style={{ 
+          alignItems: isMobile ? 'flex-start' : 'center',
+          padding: isMobile ? '60px 16px 24px' : '32px',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
         <div
           className="relative"
           style={{
-            transform: 'rotate(-0.5deg)',
-            maxWidth: '480px',
+            transform: isMobile ? 'none' : 'rotate(-0.5deg)',
+            maxWidth: isMobile ? '100%' : '480px',
             width: '100%',
           }}
         >
@@ -443,9 +581,9 @@ export default function Menu() {
           <div 
             className="absolute top-0 left-1/2 z-10 pointer-events-none"
             style={{
-              width: '80px',
-              height: '35px',
-              transform: `translateX(-50%) translateY(-18px) rotate(${tapeRotation}deg)`,
+              width: isMobile ? '60px' : '80px',
+              height: isMobile ? '26px' : '35px',
+              transform: `translateX(-50%) translateY(-${isMobile ? '13px' : '18px'}) rotate(${tapeRotation}deg)`,
             }}
           >
             <img 
@@ -460,7 +598,7 @@ export default function Menu() {
 
           {/* Paper content */}
           <div 
-            className="relative bg-white shadow-lg p-6 md:p-12 md:pb-10"
+            className="relative bg-white shadow-lg"
             style={{
               boxShadow: `
                 4px 4px 12px rgba(0,0,0,0.3), 
@@ -468,7 +606,8 @@ export default function Menu() {
                 inset 0 1px 0 rgba(255,255,255,0.8),
                 inset 0 -1px 0 rgba(0,0,0,0.05)
               `,
-              minHeight: '420px',
+              minHeight: isMobile ? '300px' : '420px',
+              padding: isMobile ? '24px 20px' : '48px',
             }}
           >
             {/* Paper texture overlay */}
@@ -482,21 +621,20 @@ export default function Menu() {
               }}
             />
 
-            {/* Back button */}
+            {/* Desktop Back button */}
+            {!isMobile && (
             <a
               href="/"
               className="absolute top-4 left-4 flex items-center gap-1.5 px-2 py-1.5 rounded text-stone-500 transition-all hover:bg-stone-100 text-sm z-50 pointer-events-auto"
-              style={{ position: 'absolute' }}
             >
               <ArrowLeft size={14} />
               <span>Back</span>
             </a>
+            )}
 
-            {/* Action buttons */}
-            <div 
-              className="absolute top-4 right-4 flex gap-2 z-50 pointer-events-auto"
-              style={{ position: 'absolute' }}
-            >
+            {/* Desktop Action buttons */}
+            {!isMobile && (
+              <div className="absolute top-4 right-4 flex gap-2 z-50 pointer-events-auto">
               {!currentUser && (
                 <button
                   onClick={() => setShowLoginModal(true)}
@@ -534,14 +672,22 @@ export default function Menu() {
                 </button>
               )}
             </div>
+            )}
 
             {/* Content */}
-            <div className="relative z-10 mt-10">
+            <div 
+              className="relative z-10"
+              style={{ marginTop: isMobile ? '8px' : '40px' }}
+            >
               {/* Header */}
               <div className="text-center mb-4">
                 <h1 
-                  className="text-base tracking-[0.2em] font-normal text-stone-600 uppercase"
-                  style={{ fontFamily: 'Cormorant Garamond, Georgia, serif' }}
+                  className="font-normal text-stone-600 uppercase"
+                  style={{ 
+                    fontFamily: 'Cormorant Garamond, Georgia, serif',
+                    fontSize: isMobile ? '0.875rem' : '1rem',
+                    letterSpacing: '0.2em',
+                  }}
                 >
                   Menu
                 </h1>
@@ -575,12 +721,13 @@ export default function Menu() {
                             style={{ 
                               fontFamily: 'Cormorant Garamond, Georgia, serif',
                               color: '#44403c',
+                              fontSize: isMobile ? '16px' : 'inherit', // Prevent iOS zoom
                             }}
                           />
                           {menuContent.sections.length > 1 && (
                             <button
                               onClick={() => handleRemoveSection(sectionIndex)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-stone-100 rounded"
+                              className="p-1 hover:bg-stone-100 rounded"
                             >
                               <X size={12} className="text-stone-400" />
                             </button>
@@ -602,7 +749,7 @@ export default function Menu() {
                     </div>
 
                     {/* Items */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       {section.items.map((item, itemIndex) => (
                         <div key={itemIndex} className="relative group/item text-center">
                           {isEditing ? (
@@ -617,6 +764,7 @@ export default function Menu() {
                                   style={{ 
                                     fontFamily: 'Cormorant Garamond, Georgia, serif',
                                     color: '#44403c',
+                                    fontSize: isMobile ? '16px' : 'inherit', // Prevent iOS zoom
                                   }}
                                 />
                                 <Input
@@ -628,15 +776,16 @@ export default function Menu() {
                                   style={{ 
                                     fontFamily: 'Inter, sans-serif',
                                     color: '#57534e',
+                                    fontSize: isMobile ? '16px' : 'inherit', // Prevent iOS zoom
                                   }}
                                 />
                               </div>
                               <button
                                 onClick={() => handleRemoveItem(sectionIndex, itemIndex)}
-                                className="mt-1.5 p-1 hover:bg-red-50 rounded border border-stone-200 hover:border-red-200 transition-colors"
+                                className="mt-1.5 p-2 hover:bg-red-50 rounded border border-stone-200 hover:border-red-200 transition-colors"
                                 title="Remove dish"
                               >
-                                <X size={12} className="text-stone-400 hover:text-red-500" />
+                                <X size={14} className="text-stone-400 hover:text-red-500" />
                               </button>
                             </div>
                           ) : (
@@ -665,9 +814,9 @@ export default function Menu() {
                     {isEditing && (
                       <button
                         onClick={() => handleAddItem(sectionIndex)}
-                        className="w-full mt-4 flex items-center justify-center gap-1 px-2 py-2 rounded text-xs text-stone-400 hover:text-stone-600 hover:bg-stone-50 transition-all border border-dashed border-stone-200"
+                        className="w-full mt-4 flex items-center justify-center gap-1 px-2 py-3 rounded text-xs text-stone-400 hover:text-stone-600 hover:bg-stone-50 transition-all border border-dashed border-stone-200"
                       >
-                        <Plus size={12} />
+                        <Plus size={14} />
                         <span>Add Dish</span>
                       </button>
                     )}
@@ -681,9 +830,9 @@ export default function Menu() {
                   onClick={handleAddSection}
                   variant="ghost"
                   size="sm"
-                  className="mt-6 w-full border border-stone-200 !bg-transparent hover:bg-stone-50 text-stone-400 hover:text-stone-600 text-xs"
+                  className="mt-6 w-full border border-stone-200 !bg-transparent hover:bg-stone-50 text-stone-400 hover:text-stone-600 text-xs py-3"
                 >
-                  <Plus size={12} className="mr-1" />
+                  <Plus size={14} className="mr-1" />
                   Add Section
                 </Button>
               )}
@@ -718,22 +867,24 @@ export default function Menu() {
       {/* Login Modal */}
       {showLoginModal && (
         <div 
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          style={{ padding: isMobile ? '16px' : '16px' }}
           onClick={() => setShowLoginModal(false)}
         >
           <div
-            className="relative"
+            className="relative w-full"
             style={{
               transform: `rotate(-1deg)`,
+              maxWidth: isMobile ? '100%' : '360px',
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div 
               className="absolute top-0 left-1/2 z-10 pointer-events-none"
               style={{
-                width: '80px',
-                height: '35px',
-                transform: `translateX(-50%) translateY(-18px) rotate(2deg)`,
+                width: isMobile ? '60px' : '80px',
+                height: isMobile ? '26px' : '35px',
+                transform: `translateX(-50%) translateY(-${isMobile ? '13px' : '18px'}) rotate(2deg)`,
               }}
             >
               <img 
@@ -747,17 +898,20 @@ export default function Menu() {
             </div>
 
             <div 
-              className="relative bg-[#fef3c7] rounded-sm shadow-xl p-8 w-full max-w-sm"
+              className="relative bg-[#fef3c7] rounded-sm shadow-xl w-full"
               style={{
                 boxShadow: `
                   0 4px 8px rgba(0, 0, 0, 0.15),
                   0 8px 20px rgba(0, 0, 0, 0.1),
                   inset 0 -1px 2px rgba(0, 0, 0, 0.05)
                 `,
+                padding: isMobile ? '24px' : '32px',
               }}
             >
-              <div className="space-y-5">
                 <div className="space-y-4">
+                <p className="text-center text-amber-900/60 text-sm">
+                  Welcome! Sign in to edit the menu.
+                </p>
                   <div className="space-y-2">
                     <Label htmlFor="login-name" className="text-amber-900/80">Your Name</Label>
                     <Input
@@ -768,6 +922,7 @@ export default function Menu() {
                       onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                       autoFocus
                       className="bg-white/60 border-amber-900/20 focus:border-amber-900/40"
+                    style={{ fontSize: '16px' }} // Prevent iOS zoom
                     />
                   </div>
                   
@@ -778,7 +933,6 @@ export default function Menu() {
                   >
                     Sign In to Edit
                   </button>
-                </div>
               </div>
             </div>
           </div>
@@ -799,15 +953,17 @@ export default function Menu() {
               top: '50%',
               left: '50%',
               transform: 'translate(-50%, -50%) rotate(-1deg)',
+              width: isMobile ? 'calc(100% - 32px)' : '420px',
+              maxWidth: '420px',
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div 
               className="absolute top-0 left-1/2 z-10 pointer-events-none"
               style={{
-                width: '80px',
-                height: '35px',
-                transform: `translateX(-50%) translateY(-18px) rotate(3deg)`,
+                width: isMobile ? '60px' : '80px',
+                height: isMobile ? '26px' : '35px',
+                transform: `translateX(-50%) translateY(-${isMobile ? '13px' : '18px'}) rotate(3deg)`,
               }}
             >
               <img 
@@ -825,16 +981,17 @@ export default function Menu() {
                   4px 4px 12px rgba(0,0,0,0.3), 
                   0 8px 20px rgba(0,0,0,0.2)
                 `,
-                width: '420px',
-                maxWidth: '90vw',
-                padding: '48px',
+                padding: isMobile ? '32px 24px' : '48px',
               }}
             >
-              <div className="space-y-8">
+              <div className="space-y-6">
                 <div className="text-center">
                   <h3 
-                    className="text-lg font-normal text-stone-600 mb-2 uppercase tracking-widest"
-                    style={{ fontFamily: 'Cormorant Garamond, Georgia, serif' }}
+                    className="font-normal text-stone-600 mb-2 uppercase tracking-widest"
+                    style={{ 
+                      fontFamily: 'Cormorant Garamond, Georgia, serif',
+                      fontSize: isMobile ? '1rem' : '1.125rem',
+                    }}
                   >
                     Capture Menu
                   </h3>
@@ -843,7 +1000,7 @@ export default function Menu() {
                   </p>
                 </div>
 
-                <div className="space-y-4 py-2">
+                <div className="space-y-4">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -854,7 +1011,7 @@ export default function Menu() {
                   />
                   
                   {capturePhotos.length > 0 && (
-                    <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="grid grid-cols-3 gap-2 mb-4">
                       {capturePhotos.map((photo, index) => (
                         <div key={index} className="relative aspect-square bg-stone-100 shadow-sm group">
                           <img 
@@ -864,9 +1021,9 @@ export default function Menu() {
                           />
                           <button
                             onClick={() => removePhoto(index)}
-                            className="absolute top-1 right-1 w-5 h-5 bg-white text-stone-600 shadow-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 hover:text-red-500"
+                            className="absolute top-1 right-1 w-6 h-6 bg-white text-stone-600 shadow-sm flex items-center justify-center hover:bg-red-50 hover:text-red-500 rounded"
                           >
-                            <X size={12} />
+                            <X size={14} />
                           </button>
                         </div>
                       ))}
@@ -875,7 +1032,7 @@ export default function Menu() {
 
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="w-full py-8 border border-dashed border-stone-300 rounded-sm flex flex-col items-center justify-center gap-2 text-stone-400 hover:text-stone-600 hover:border-stone-400 hover:bg-stone-50/50 transition-all group"
+                    className="w-full py-6 border border-dashed border-stone-300 rounded-sm flex flex-col items-center justify-center gap-2 text-stone-400 hover:text-stone-600 hover:border-stone-400 hover:bg-stone-50/50 transition-all group"
                   >
                     <div className="p-3 rounded-full bg-stone-50 group-hover:bg-stone-100 transition-colors">
                       <Upload size={20} className="text-stone-400 group-hover:text-stone-600" />
@@ -884,7 +1041,7 @@ export default function Menu() {
                   </button>
                 </div>
 
-                <div className="flex gap-3 pt-2">
+                <div className="flex gap-3">
                   <button
                     onClick={() => {
                       setShowCaptureModal(false);

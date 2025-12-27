@@ -11,9 +11,10 @@ interface CustomDragLayerProps {
   items: BoardItem[];
   users: User[];
   currentUserId?: string;
+  scale?: number;
 }
 
-export function CustomDragLayer({ items, users, currentUserId }: CustomDragLayerProps) {
+export function CustomDragLayer({ items, users, currentUserId, scale = 1 }: CustomDragLayerProps) {
   const { isDragging, item, currentOffset } = useDragLayer((monitor) => ({
     item: monitor.getItem(),
     currentOffset: monitor.getClientOffset(),
@@ -110,8 +111,9 @@ export function CustomDragLayer({ items, users, currentUserId }: CustomDragLayer
           position: 'absolute',
           left: currentOffset.x - (item.offsetX || 0),
           top: currentOffset.y - (item.offsetY || 0),
-          transform: `rotate(${draggedItem.rotation || 0}deg)`,
-          opacity: 0.9,
+          transform: `scale(${scale}) rotate(${draggedItem.rotation || 0}deg)`,
+          transformOrigin: 'top left',
+          opacity: 0.7,
         }}
       >
         {renderContent()}

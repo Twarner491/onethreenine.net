@@ -1,7 +1,7 @@
 import type { BoardItem, User } from './types';
 import { PinnedItem } from './PinnedItem';
 import { CustomDragLayer } from './CustomDragLayer';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 interface PegboardCanvasProps {
   items: BoardItem[];
@@ -13,6 +13,12 @@ interface PegboardCanvasProps {
   selectedItemId: string | null;
   onSelectItem: (id: string | null) => void;
   isViewerMode?: boolean;
+  isJiggleMode?: boolean;
+  onEnterJiggleMode?: () => void;
+  onExitJiggleMode?: () => void;
+  isMobile?: boolean;
+  onBringToFront?: (id: string) => void;
+  onSendToBack?: (id: string) => void;
 }
 
 // 54.6" displays are typically 16:9 aspect ratio
@@ -20,54 +26,228 @@ const TARGET_ASPECT_RATIO = 16 / 9;
 const WORKSPACE_WIDTH = 1920; // Base width for element positioning
 const WORKSPACE_HEIGHT = 1080; // Base height for element positioning (16:9)
 
-export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, users, currentUserId, selectedItemId, onSelectItem, isViewerMode }: PegboardCanvasProps) {
+// Mobile detection - purely width-based so it works when resizing browser for testing
+const MOBILE_BREAKPOINT = 768;
+const isMobileDevice = () => {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth < MOBILE_BREAKPOINT;
+};
+
+export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, users, currentUserId, selectedItemId, onSelectItem, isViewerMode, isJiggleMode, onEnterJiggleMode, onExitJiggleMode, isMobile: isMobileProp, onBringToFront, onSendToBack }: PegboardCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-  const [workspaceOffset, setWorkspaceOffset] = useState({ x: 0, y: 0 });
+  const [isMobile, setIsMobile] = useState(false);
+  
+  // Base scale (fits workspace to screen)
+  const [baseScale, setBaseScale] = useState(1);
+  // User zoom multiplier (for mobile pinch-to-zoom)
+  const [userZoom, setUserZoom] = useState(1);
+  // Combined scale
+  const scale = baseScale * userZoom;
+  
+  // Pan offset for mobile navigation
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  // Base offset (centers workspace on desktop)
+  const [baseOffset, setBaseOffset] = useState({ x: 0, y: 0 });
+  
+  // Touch gesture state
+  const touchStateRef = useRef({
+    isPanning: false,
+    isPinching: false,
+    lastTouchX: 0,
+    lastTouchY: 0,
+    lastPinchDistance: 0,
+    pinchCenterX: 0,
+    pinchCenterY: 0,
+  });
+  
   const [isMobileEditing, setIsMobileEditing] = useState(false);
+  
+  // Track which item's context menu is currently open (only one at a time)
+  const [activeContextMenuId, setActiveContextMenuId] = useState<string | null>(null);
   
   const handleMobileEditingChange = (isEditing: boolean, _itemId: string | null) => {
     setIsMobileEditing(isEditing);
   };
 
+  // Handle edge panning during jiggle mode drag
+  const handleEdgePan = useCallback((deltaX: number, deltaY: number) => {
+    if (!isJiggleMode) return;
+    
+    setPanOffset(prev => {
+      // Calculate bounds to prevent panning too far
+      const scaledWidth = WORKSPACE_WIDTH * scale;
+      const scaledHeight = WORKSPACE_HEIGHT * scale;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      
+      // Allow generous bounds for edge panning
+      const maxPanX = Math.max(0, (scaledWidth - viewportWidth) / 2 + 200);
+      const maxPanY = Math.max(0, (scaledHeight - viewportHeight) / 2 + 200);
+      
+      return {
+        x: Math.max(-maxPanX, Math.min(maxPanX, prev.x + deltaX)),
+        y: Math.max(-maxPanY, Math.min(maxPanY, prev.y + deltaY)),
+      };
+    });
+  }, [isJiggleMode, scale]);
+
+  // Calculate base scale and offset
   useEffect(() => {
-    const updateScale = () => {
+    const updateLayout = () => {
       if (!containerRef.current) return;
       
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
       const viewportAspect = viewportWidth / viewportHeight;
+      const mobile = isMobileDevice();
 
-      let scale = 1;
+      setIsMobile(mobile);
+
+      let newBaseScale = 1;
       let workspaceWidth, workspaceHeight;
       
       if (viewportAspect > TARGET_ASPECT_RATIO) {
         // Viewport is wider than target - fit to height with padding
-        const padding = 40;
+        const padding = mobile ? 0 : 40;
         workspaceHeight = viewportHeight - padding * 2;
         workspaceWidth = workspaceHeight * TARGET_ASPECT_RATIO;
-        scale = workspaceWidth / WORKSPACE_WIDTH;
+        newBaseScale = workspaceWidth / WORKSPACE_WIDTH;
       } else {
         // Viewport is taller than target - fit to width with padding
-        const padding = 40;
+        const padding = mobile ? 0 : 40;
         workspaceWidth = viewportWidth - padding * 2;
         workspaceHeight = workspaceWidth / TARGET_ASPECT_RATIO;
-        scale = workspaceWidth / WORKSPACE_WIDTH;
+        newBaseScale = workspaceWidth / WORKSPACE_WIDTH;
       }
 
       // Calculate offset to center the workspace
       const offsetX = (viewportWidth - workspaceWidth) / 2;
       const offsetY = (viewportHeight - workspaceHeight) / 2;
       
-      setScale(scale);
-      setWorkspaceOffset({ x: offsetX, y: offsetY });
+      setBaseScale(newBaseScale);
+      setBaseOffset({ x: offsetX, y: offsetY });
+      
+      // On mobile, start zoomed in so items are readable
+      if (mobile && userZoom === 1) {
+        // Start at 2x zoom, centered on the middle of the board
+        const initialZoom = 2;
+        setUserZoom(initialZoom);
+        // Center the view on the middle of the workspace
+        const scaledWidth = WORKSPACE_WIDTH * newBaseScale * initialZoom;
+        const scaledHeight = WORKSPACE_HEIGHT * newBaseScale * initialZoom;
+        setPanOffset({
+          x: -(scaledWidth - viewportWidth) / 2,
+          y: -(scaledHeight - viewportHeight) / 2,
+        });
+      }
     };
 
-    updateScale();
-    window.addEventListener('resize', updateScale);
-    return () => window.removeEventListener('resize', updateScale);
+    updateLayout();
+    window.addEventListener('resize', updateLayout);
+    return () => window.removeEventListener('resize', updateLayout);
   }, []);
+
+  // Touch event handlers for pan and pinch-to-zoom
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    // Skip touch handling in jiggle mode to allow react-dnd to handle item dragging
+    if (!isMobile || isMobileEditing || isJiggleMode) return;
+    
+    const touches = e.touches;
+    const state = touchStateRef.current;
+    
+    if (touches.length === 1) {
+      // Single touch - prepare for pan
+      state.isPanning = true;
+      state.lastTouchX = touches[0].clientX;
+      state.lastTouchY = touches[0].clientY;
+    } else if (touches.length === 2) {
+      // Two touches - prepare for pinch
+      state.isPanning = false;
+      state.isPinching = true;
+      
+      const dx = touches[1].clientX - touches[0].clientX;
+      const dy = touches[1].clientY - touches[0].clientY;
+      state.lastPinchDistance = Math.sqrt(dx * dx + dy * dy);
+      state.pinchCenterX = (touches[0].clientX + touches[1].clientX) / 2;
+      state.pinchCenterY = (touches[0].clientY + touches[1].clientY) / 2;
+    }
+  }, [isMobile, isMobileEditing, isJiggleMode]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    // Skip touch handling in jiggle mode to allow react-dnd to handle item dragging
+    if (!isMobile || isMobileEditing || isJiggleMode) return;
+    
+    const touches = e.touches;
+    const state = touchStateRef.current;
+    
+    if (touches.length === 1 && state.isPanning && !state.isPinching) {
+      // Pan gesture
+      const deltaX = touches[0].clientX - state.lastTouchX;
+      const deltaY = touches[0].clientY - state.lastTouchY;
+      
+      setPanOffset(prev => {
+        // Calculate bounds to prevent panning too far
+        const scaledWidth = WORKSPACE_WIDTH * scale;
+        const scaledHeight = WORKSPACE_HEIGHT * scale;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        // Allow some overscroll but limit it
+        const maxPanX = Math.max(0, (scaledWidth - viewportWidth) / 2 + 100);
+        const maxPanY = Math.max(0, (scaledHeight - viewportHeight) / 2 + 100);
+        
+        return {
+          x: Math.max(-maxPanX, Math.min(maxPanX, prev.x + deltaX)),
+          y: Math.max(-maxPanY, Math.min(maxPanY, prev.y + deltaY)),
+        };
+      });
+      
+      state.lastTouchX = touches[0].clientX;
+      state.lastTouchY = touches[0].clientY;
+    } else if (touches.length === 2 && state.isPinching) {
+      // Pinch-to-zoom gesture
+      const dx = touches[1].clientX - touches[0].clientX;
+      const dy = touches[1].clientY - touches[0].clientY;
+      const newDistance = Math.sqrt(dx * dx + dy * dy);
+      
+      const zoomDelta = newDistance / state.lastPinchDistance;
+      
+      setUserZoom(prev => {
+        // Limit zoom range: 0.5x to 4x
+        const newZoom = Math.max(0.5, Math.min(4, prev * zoomDelta));
+        return newZoom;
+      });
+      
+      // Update pinch center for next frame
+      const newCenterX = (touches[0].clientX + touches[1].clientX) / 2;
+      const newCenterY = (touches[0].clientY + touches[1].clientY) / 2;
+      
+      // Pan to keep pinch center stable
+      const panDeltaX = newCenterX - state.pinchCenterX;
+      const panDeltaY = newCenterY - state.pinchCenterY;
+      
+      setPanOffset(prev => ({
+        x: prev.x + panDeltaX,
+        y: prev.y + panDeltaY,
+      }));
+      
+      state.lastPinchDistance = newDistance;
+      state.pinchCenterX = newCenterX;
+      state.pinchCenterY = newCenterY;
+    }
+  }, [isMobile, isMobileEditing, isJiggleMode, scale]);
+
+  const handleTouchEnd = useCallback(() => {
+    const state = touchStateRef.current;
+    state.isPanning = false;
+    state.isPinching = false;
+  }, []);
+
+  // Calculate final workspace position
+  const workspaceOffset = isMobile 
+    ? { x: panOffset.x, y: panOffset.y }
+    : baseOffset;
 
   return (
     <>
@@ -95,12 +275,19 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
       
       <div 
         ref={containerRef}
+        data-corkboard
         className="w-full h-full relative overflow-hidden"
         style={{
           backgroundImage: 'url(/assets/images/corkboard/cork-board-background-2000-x-1333-wtfq50v9g0jpm6gm.jpg)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
+          // In jiggle mode, allow touch events for react-dnd dragging
+          // Otherwise, 'none' allows our custom pan/zoom handlers
+          touchAction: isJiggleMode ? 'manipulation' : (isMobile ? 'none' : 'auto'),
         }}
+        onTouchStart={isJiggleMode ? undefined : handleTouchStart}
+        onTouchMove={isJiggleMode ? undefined : handleTouchMove}
+        onTouchEnd={isJiggleMode ? undefined : handleTouchEnd}
       >
         {/* Cork texture fills entire screen */}
         <div 
@@ -174,6 +361,17 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
             // Deselect when clicking on background (not on an item)
             if (e.target === e.currentTarget) {
               onSelectItem(null);
+              // Exit jiggle mode when clicking background
+              if (isJiggleMode) {
+                onExitJiggleMode?.();
+              }
+            }
+          }}
+          onTouchEnd={(e) => {
+            // Exit jiggle mode when tapping background on touch devices
+            if (isJiggleMode && e.target === e.currentTarget) {
+              onSelectItem(null);
+              onExitJiggleMode?.();
             }
           }}
           style={{
@@ -184,6 +382,8 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
             transform: `scale(${scale})`,
             transformOrigin: 'top left',
             position: 'absolute',
+            // Allow touch events for dragging in jiggle mode
+            touchAction: isJiggleMode ? 'none' : 'auto',
           }}
         >
         {/* Render all pinned items within the workspace */}
@@ -215,12 +415,22 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
               onMobileEditingChange={handleMobileEditingChange}
               isSelected={selectedItemId === item.id}
               onSelect={() => onSelectItem(item.id)}
+              onDeselect={() => onSelectItem(null)}
+              scale={scale}
+              isJiggleMode={isJiggleMode}
+              onEnterJiggleMode={onEnterJiggleMode}
+              isMobile={isMobileProp || isMobile}
+              onEdgePan={handleEdgePan}
+              onBringToFront={onBringToFront}
+              onSendToBack={onSendToBack}
+              activeContextMenuId={activeContextMenuId}
+              onContextMenuOpen={setActiveContextMenuId}
             />
           ))}
       </div>
 
         {/* Custom drag layer for real-time drag preview */}
-        <CustomDragLayer items={items} users={users} currentUserId={currentUserId} />
+        <CustomDragLayer items={items} users={users} currentUserId={currentUserId} scale={scale} />
       </div>
     </>
   );

@@ -3,6 +3,8 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { TouchBackend } from 'react-dnd-touch-backend';
 import { PegboardCanvas } from './PegboardCanvas';
 import { Toolbar } from './Toolbar';
+import { MobileOnboarding, useMobileOnboarding } from './MobileOnboarding';
+import { DesktopOnboarding, useDesktopOnboarding } from './DesktopOnboarding';
 import { Toaster } from './ui/sonner';
 import { toast } from 'sonner';
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -33,6 +35,18 @@ const isTouchDevice = () => {
   return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 };
 
+const MOBILE_BREAKPOINT = 768;
+
+// Undo history entry type
+interface UndoEntry {
+  type: 'update' | 'delete' | 'create';
+  itemId: string;
+  previousState: BoardItem | null; // null for create (undo = delete)
+  newState: BoardItem | null; // null for delete (undo = restore)
+}
+
+const MAX_UNDO_HISTORY = 50;
+
 export default function App() {
   const [items, setItems] = useState<BoardItem[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -40,18 +54,49 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [showViewerSettings, setShowViewerSettings] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [isUserViewerMode, setIsUserViewerMode] = useState(() => {
+    // Auto-start in viewer mode on mobile for easier browsing
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < MOBILE_BREAKPOINT;
+    }
+    return false;
+  });
+  const [isJiggleMode, setIsJiggleMode] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < MOBILE_BREAKPOINT;
+    }
+    return false;
+  });
+  const { hasSeenOnboarding: hasSeenMobileOnboarding, markAsSeen: markMobileAsSeen } = useMobileOnboarding();
+  const { hasSeenOnboarding: hasSeenDesktopOnboarding, markAsSeen: markDesktopAsSeen } = useDesktopOnboarding();
+  
+  // Undo/Redo history for Ctrl+Z and Ctrl+Shift+Z functionality
+  const undoHistoryRef = useRef<UndoEntry[]>([]);
+  const redoHistoryRef = useRef<UndoEntry[]>([]);
+  const [showMobileOnboarding, setShowMobileOnboarding] = useState(false);
+  const [showDesktopOnboarding, setShowDesktopOnboarding] = useState(false);
+  const [forceShowMobileOnboarding, setForceShowMobileOnboarding] = useState(false);
+  const [forceShowDesktopOnboarding, setForceShowDesktopOnboarding] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
   
   // Track pending updates to avoid conflicts with real-time sync
   const pendingUpdatesRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const localUpdatesRef = useRef<Map<string, Partial<BoardItem>>>(new Map());
   
-  // Check if current user is in viewer mode
-  const isViewerMode = currentUser?.name.toLowerCase() === 'monalisa';
+  // Check if current user is in MonaLisa viewer mode (special read-only account)
+  const isMonaLisaMode = currentUser?.name.toLowerCase() === 'monalisa';
+  
+  // Combined viewer mode - either MonaLisa mode or user-toggled viewer mode
+  const isViewerMode = isMonaLisaMode || isUserViewerMode;
 
   // Select appropriate backend for DnD
   const dndBackend = isTouchDevice() ? TouchBackend : HTML5Backend;
-  const dndOptions = isTouchDevice() ? { enableMouseEvents: true } : undefined;
+  const dndOptions = isTouchDevice() ? { 
+    enableMouseEvents: true,
+    delayTouchStart: 0, // No delay for immediate touch dragging
+    ignoreContextMenu: true,
+  } : undefined;
 
   // Load initial data from Supabase
   useEffect(() => {
@@ -80,17 +125,87 @@ export default function App() {
     }
   }, []);
 
-  // Keyboard shortcut for viewer mode (Escape to toggle settings)
+  // Detect mobile and show onboarding
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < MOBILE_BREAKPOINT;
+      setIsMobile(mobile);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Show onboarding for users who haven't seen it
+  useEffect(() => {
+    if (currentUser && !isLoading) {
+      if (isMobile && !hasSeenMobileOnboarding) {
+        setShowMobileOnboarding(true);
+      } else if (!isMobile && !hasSeenDesktopOnboarding) {
+        setShowDesktopOnboarding(true);
+      }
+    }
+  }, [isMobile, currentUser, hasSeenMobileOnboarding, hasSeenDesktopOnboarding, isLoading]);
+
+  // Handle #instructions hash to show onboarding
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (window.location.hash === '#instructions') {
+        // Show appropriate onboarding based on device
+        if (isMobile) {
+          setForceShowMobileOnboarding(true);
+          setShowMobileOnboarding(true);
+        } else {
+          setForceShowDesktopOnboarding(true);
+          setShowDesktopOnboarding(true);
+        }
+        // Clear the hash after showing
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    };
+    
+    // Check on mount
+    handleHashChange();
+    
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [isMobile]);
+
+  // Refs to store handleUndo/handleRedo to avoid dependency ordering issues
+  const handleUndoRef = useRef<() => void>(() => {});
+  const handleRedoRef = useRef<() => void>(() => {});
+  
+  // Keyboard shortcuts: Escape for exit, Ctrl+Z for undo, Ctrl+Shift+Z for redo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isViewerMode) {
+      // Ctrl+Shift+Z or Cmd+Shift+Z for redo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        handleRedoRef.current();
+        return;
+      }
+      
+      // Ctrl+Z or Cmd+Z for undo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndoRef.current();
+        return;
+      }
+      
+      if (e.key === 'Escape') {
+        if (isJiggleMode) {
+          setIsJiggleMode(false);
+        } else if (isMonaLisaMode) {
         setShowViewerSettings(prev => !prev);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isViewerMode]);
+  }, [isMonaLisaMode, isJiggleMode]);
 
   const loadInitialData = async () => {
     try {
@@ -114,6 +229,8 @@ export default function App() {
         created_by: item.created_by,
         created_at: item.created_at,
         updated_at: item.updated_at,
+        updated_by: (item as any).updated_by,
+        z_index: (item as any).z_index,
       }));
 
       const formattedUsers: User[] = usersData.map(user => ({
@@ -207,6 +324,8 @@ export default function App() {
         created_by: item.created_by,
         created_at: item.created_at,
         updated_at: item.updated_at,
+        updated_by: (item as any).updated_by,
+        z_index: (item as any).z_index,
       }));
       setItems(formattedItems);
     } catch (error) {
@@ -237,6 +356,8 @@ export default function App() {
             created_by: payload.new.created_by,
             created_at: payload.new.created_at,
             updated_at: payload.new.updated_at,
+            updated_by: payload.new.updated_by,
+            z_index: payload.new.z_index,
           };
           
           setItems(prevItems => {
@@ -274,6 +395,8 @@ export default function App() {
             created_by: payload.new.created_by,
             created_at: payload.new.created_at,
             updated_at: payload.new.updated_at,
+            updated_by: payload.new.updated_by,
+            z_index: payload.new.z_index,
           };
           
           setItems(prevItems =>
@@ -342,7 +465,7 @@ export default function App() {
     channelRef.current = channel;
   };
 
-  const handleAddItem = async (type: BoardItem['type'] | 'event') => {
+  const handleAddItem = async (type: 'note' | 'photo' | 'list' | 'receipt') => {
     if (!currentUser) {
       toast.error('Please log in to add items');
       return;
@@ -357,15 +480,10 @@ export default function App() {
       const colors = ['#fef3c7', '#dbeafe', '#fce7f3', '#d1fae5', '#e0e7ff'];
       const randomColor = colors[Math.floor(Math.random() * colors.length)];
       
-      // Map 'event' to 'menu' type with event content structure (for DB compatibility)
-      const actualType = type === 'event' ? 'menu' : type;
-      
       const content = type === 'note' ? { text: '' } :
                      type === 'list' ? { title: 'New List', items: [] } :
                      type === 'photo' ? { imageUrl: null, caption: '' } :
                      type === 'receipt' ? { store: '', date: new Date().toLocaleDateString(), items: [], total: 0 } :
-                     type === 'event' ? { title: 'New Event', date: '', items: [] } :
-                     type === 'menu' ? { sections: [{ title: 'Main', items: [] }] } :
                      {};
 
       const x = Math.random() * (window.innerWidth - 300) + 50;
@@ -376,7 +494,7 @@ export default function App() {
       const optimisticId = `temp-${Date.now()}`;
       const optimisticItem: BoardItem = {
         id: optimisticId,
-        type: actualType,
+        type,
         x,
         y,
         rotation,
@@ -392,7 +510,7 @@ export default function App() {
 
       // Create in database
       const createdItem = await createBoardItem(
-        actualType,
+        type,
         x,
         y,
         content,
@@ -419,30 +537,64 @@ export default function App() {
 
   // Debounced update function for position/rotation
   const debouncedPositionUpdate = useCallback(
-    debounce(async (id: string, updates: Partial<BoardItem>) => {
+    debounce(async (id: string, updates: Partial<BoardItem>, userId?: string) => {
       try {
         const supabaseUpdates: any = {};
         if (updates.x !== undefined) supabaseUpdates.x = updates.x;
         if (updates.y !== undefined) supabaseUpdates.y = updates.y;
         if (updates.rotation !== undefined) supabaseUpdates.rotation = updates.rotation;
+        // Track who made this edit
+        if (userId) supabaseUpdates.updated_by = userId;
 
         await updateBoardItem(id, supabaseUpdates);
         
         // Clear local update tracking after successful sync
         localUpdatesRef.current.delete(id);
+        
+        // Finalize undo entry - the drag sequence is complete
+        const originalPos = lastUndoPositionRef.current.get(id);
+        if (originalPos) {
+          // Get current state of the item
+          const currentItem = items.find(item => item.id === id);
+          if (currentItem) {
+            // Create undo entry with the original position before drag started
+            const previousState: BoardItem = {
+              ...currentItem,
+              x: originalPos.x,
+              y: originalPos.y,
+              rotation: originalPos.rotation,
+            };
+            undoHistoryRef.current.push({
+              type: 'update',
+              itemId: id,
+              previousState,
+              newState: currentItem,
+            });
+            // Keep history limited
+            if (undoHistoryRef.current.length > MAX_UNDO_HISTORY) {
+              undoHistoryRef.current.shift();
+            }
+          }
+          lastUndoPositionRef.current.delete(id);
+        }
       } catch (error) {
         console.error('Error updating position:', error);
         localUpdatesRef.current.delete(id);
+        lastUndoPositionRef.current.delete(id);
       }
     }, 300),
-    []
+    [items]
   );
 
   // Debounced update function for content
   const debouncedContentUpdate = useCallback(
-    debounce(async (id: string, content: any) => {
+    debounce(async (id: string, content: any, userId?: string) => {
       try {
-        await updateBoardItem(id, { content });
+        const supabaseUpdates: any = { content };
+        // Track who made this edit
+        if (userId) supabaseUpdates.updated_by = userId;
+        
+        await updateBoardItem(id, supabaseUpdates);
         
         // Clear local update tracking after successful sync
         localUpdatesRef.current.delete(id);
@@ -454,10 +606,214 @@ export default function App() {
     []
   );
 
+  // Add entry to undo history (clears redo history)
+  const pushUndoEntry = useCallback((entry: UndoEntry) => {
+    undoHistoryRef.current.push(entry);
+    // Clear redo history when a new action is performed
+    redoHistoryRef.current = [];
+    // Keep history limited
+    if (undoHistoryRef.current.length > MAX_UNDO_HISTORY) {
+      undoHistoryRef.current.shift();
+    }
+  }, []);
+  
+  // Undo the last action (pushes to redo stack)
+  const handleUndo = useCallback(async () => {
+    if (undoHistoryRef.current.length === 0) {
+      return;
+    }
+    
+    const entry = undoHistoryRef.current.pop()!;
+    
+    try {
+      if (entry.type === 'update' && entry.previousState) {
+        // Get current state before restoring for redo
+        const currentItem = items.find(item => item.id === entry.itemId);
+        
+        // Restore previous state
+        const restoredItem = entry.previousState;
+        setItems(prevItems =>
+          prevItems.map(item =>
+            item.id === entry.itemId ? restoredItem : item
+          )
+        );
+        await updateBoardItem(entry.itemId, {
+          x: restoredItem.x,
+          y: restoredItem.y,
+          rotation: restoredItem.rotation,
+          content: restoredItem.content,
+          color: restoredItem.color,
+        });
+        
+        // Push to redo stack (inverse: current becomes previous, restored becomes new)
+        if (currentItem) {
+          redoHistoryRef.current.push({
+            type: 'update',
+            itemId: entry.itemId,
+            previousState: restoredItem,
+            newState: currentItem,
+          });
+        }
+        
+        toast.success('Undone');
+      } else if (entry.type === 'delete' && entry.previousState) {
+        // Restore deleted item
+        const restoredItem = entry.previousState;
+        setItems(prevItems => [...prevItems, restoredItem]);
+        await createBoardItem(
+          restoredItem.type,
+          restoredItem.x,
+          restoredItem.y,
+          restoredItem.content,
+          restoredItem.created_by || '',
+          restoredItem.rotation,
+          restoredItem.color
+        );
+        
+        // Push to redo stack (inverse: redo will delete this item)
+        redoHistoryRef.current.push({
+          type: 'create',
+          itemId: entry.itemId,
+          previousState: null,
+          newState: restoredItem,
+        });
+        
+        toast.success('Item restored');
+      } else if (entry.type === 'create' && entry.newState) {
+        // Delete the created item
+        const itemToDelete = items.find(item => item.id === entry.itemId);
+        setItems(prevItems => prevItems.filter(item => item.id !== entry.itemId));
+        await deleteBoardItem(entry.itemId);
+        
+        // Push to redo stack (inverse: redo will recreate this item)
+        if (itemToDelete) {
+          redoHistoryRef.current.push({
+            type: 'delete',
+            itemId: entry.itemId,
+            previousState: itemToDelete,
+            newState: null,
+          });
+        }
+        
+        toast.success('Creation undone');
+      }
+    } catch (error) {
+      console.error('Error undoing action:', error);
+      toast.error('Failed to undo');
+    }
+  }, [items]);
+  
+  // Redo the last undone action
+  const handleRedo = useCallback(async () => {
+    if (redoHistoryRef.current.length === 0) {
+      return;
+    }
+    
+    const entry = redoHistoryRef.current.pop()!;
+    
+    try {
+      if (entry.type === 'update' && entry.newState) {
+        // Apply the "new" state from the redo entry
+        const restoredItem = entry.newState;
+        const currentItem = items.find(item => item.id === entry.itemId);
+        
+        setItems(prevItems =>
+          prevItems.map(item =>
+            item.id === entry.itemId ? restoredItem : item
+          )
+        );
+        await updateBoardItem(entry.itemId, {
+          x: restoredItem.x,
+          y: restoredItem.y,
+          rotation: restoredItem.rotation,
+          content: restoredItem.content,
+          color: restoredItem.color,
+        });
+        
+        // Push back to undo stack
+        if (currentItem) {
+          undoHistoryRef.current.push({
+            type: 'update',
+            itemId: entry.itemId,
+            previousState: currentItem,
+            newState: restoredItem,
+          });
+        }
+        
+        toast.success('Redone');
+      } else if (entry.type === 'delete' && entry.previousState) {
+        // Re-delete the item
+        setItems(prevItems => prevItems.filter(item => item.id !== entry.itemId));
+        await deleteBoardItem(entry.itemId);
+        
+        // Push back to undo stack
+        undoHistoryRef.current.push({
+          type: 'delete',
+          itemId: entry.itemId,
+          previousState: entry.previousState,
+          newState: null,
+        });
+        
+        toast.success('Redone');
+      } else if (entry.type === 'create' && entry.newState) {
+        // Re-create the item
+        const restoredItem = entry.newState;
+        setItems(prevItems => [...prevItems, restoredItem]);
+        await createBoardItem(
+          restoredItem.type,
+          restoredItem.x,
+          restoredItem.y,
+          restoredItem.content,
+          restoredItem.created_by || '',
+          restoredItem.rotation,
+          restoredItem.color
+        );
+        
+        // Push back to undo stack
+        undoHistoryRef.current.push({
+          type: 'create',
+          itemId: entry.itemId,
+          previousState: null,
+          newState: restoredItem,
+        });
+        
+        toast.success('Redone');
+      }
+    } catch (error) {
+      console.error('Error redoing action:', error);
+      toast.error('Failed to redo');
+    }
+  }, [items]);
+  
+  // Keep undo/redo refs updated
+  useEffect(() => {
+    handleUndoRef.current = handleUndo;
+  }, [handleUndo]);
+  
+  useEffect(() => {
+    handleRedoRef.current = handleRedo;
+  }, [handleRedo]);
+  
+  // Track last position for undo (only track first change in a drag sequence)
+  const lastUndoPositionRef = useRef<Map<string, { x: number; y: number; rotation: number }>>(new Map());
+
   const handleUpdateItem = (id: string, updates: Partial<BoardItem>) => {
     // Prevent updates in viewer mode
     if (isViewerMode) {
       return;
+    }
+
+    // Track undo for position/rotation changes (only first change in sequence)
+    if ((updates.x !== undefined || updates.y !== undefined || updates.rotation !== undefined)) {
+      const currentItem = items.find(item => item.id === id);
+      if (currentItem && !lastUndoPositionRef.current.has(id)) {
+        // Store the original position before this drag sequence starts
+        lastUndoPositionRef.current.set(id, {
+          x: currentItem.x,
+          y: currentItem.y,
+          rotation: currentItem.rotation || 0,
+        });
+      }
     }
 
     // Mark as locally updating
@@ -472,13 +828,14 @@ export default function App() {
 
     // Debounce database update based on what changed
     if (updates.x !== undefined || updates.y !== undefined || updates.rotation !== undefined) {
-      debouncedPositionUpdate(id, updates);
+      debouncedPositionUpdate(id, updates, currentUser?.id);
     } else if (updates.content !== undefined) {
-      debouncedContentUpdate(id, updates.content);
+      debouncedContentUpdate(id, updates.content, currentUser?.id);
     } else {
       // For other updates (like color), sync immediately
       localUpdatesRef.current.delete(id);
-      updateBoardItem(id, updates).catch(error => {
+      const supabaseUpdates = { ...updates, updated_by: currentUser?.id };
+      updateBoardItem(id, supabaseUpdates as any).catch(error => {
         console.error('Error updating item:', error);
         toast.error('Failed to update item');
       });
@@ -492,6 +849,9 @@ export default function App() {
       return;
     }
 
+    // Store item for undo before deleting
+    const itemToDelete = items.find(item => item.id === id);
+
     try {
       // Optimistically remove from UI
       setItems(prevItems => prevItems.filter(item => item.id !== id));
@@ -504,6 +864,16 @@ export default function App() {
       }
 
       await deleteBoardItem(id);
+      
+      // Add to undo history after successful delete
+      if (itemToDelete) {
+        pushUndoEntry({
+          type: 'delete',
+          itemId: id,
+          previousState: itemToDelete,
+          newState: null,
+        });
+      }
     } catch (error) {
       console.error('Error deleting item:', error);
       toast.error('Failed to delete item');
@@ -511,6 +881,60 @@ export default function App() {
       loadInitialData();
     }
   };
+
+  // Bring item to front (highest z-index)
+  const handleBringToFront = useCallback((id: string) => {
+    const maxZ = Math.max(...items.map(item => item.z_index || 0), 0);
+    const newZIndex = maxZ + 1;
+    
+    // Mark as having local update to prevent real-time overwrite
+    localUpdatesRef.current.set(id, { z_index: newZIndex });
+    
+    // Update locally
+    setItems(prevItems =>
+      prevItems.map(item =>
+        item.id === id ? { ...item, z_index: newZIndex } : item
+      )
+    );
+    
+    // Update in database
+    updateBoardItem(id, { z_index: newZIndex } as any)
+      .then(() => {
+        // Clear local update flag after successful save
+        setTimeout(() => localUpdatesRef.current.delete(id), 500);
+      })
+      .catch(error => {
+        console.error('Error updating z-index:', error);
+        localUpdatesRef.current.delete(id);
+      });
+  }, [items]);
+
+  // Send item to back (lowest z-index)
+  const handleSendToBack = useCallback((id: string) => {
+    const minZ = Math.min(...items.map(item => item.z_index || 0), 0);
+    const newZIndex = minZ - 1;
+    
+    // Mark as having local update to prevent real-time overwrite
+    localUpdatesRef.current.set(id, { z_index: newZIndex });
+    
+    // Update locally
+    setItems(prevItems =>
+      prevItems.map(item =>
+        item.id === id ? { ...item, z_index: newZIndex } : item
+      )
+    );
+    
+    // Update in database
+    updateBoardItem(id, { z_index: newZIndex } as any)
+      .then(() => {
+        // Clear local update flag after successful save
+        setTimeout(() => localUpdatesRef.current.delete(id), 500);
+      })
+      .catch(error => {
+        console.error('Error updating z-index:', error);
+        localUpdatesRef.current.delete(id);
+      });
+  }, [items]);
 
   const handleLogin = async (userData: { name: string }) => {
     try {
@@ -563,6 +987,12 @@ export default function App() {
             selectedItemId={selectedItemId}
             onSelectItem={setSelectedItemId}
             isViewerMode={isViewerMode}
+            isJiggleMode={isJiggleMode}
+            onEnterJiggleMode={() => setIsJiggleMode(true)}
+            onExitJiggleMode={() => setIsJiggleMode(false)}
+            isMobile={isMobile}
+            onBringToFront={handleBringToFront}
+            onSendToBack={handleSendToBack}
           />
         
         {/* Show toolbar for everyone, but viewer mode gets modified toolbar */}
@@ -571,11 +1001,15 @@ export default function App() {
           currentUser={currentUser}
           onLogin={handleLogin}
           onLogout={handleLogout}
-          isViewerMode={isViewerMode}
+          isViewerMode={isMonaLisaMode}
+          isUserViewerMode={isUserViewerMode}
+          onToggleViewerMode={() => setIsUserViewerMode(prev => !prev)}
+          isJiggleMode={isJiggleMode}
+          onExitJiggleMode={() => setIsJiggleMode(false)}
         />
 
-        {/* Viewer mode: ESC hint and settings dialog */}
-        {isViewerMode && (
+        {/* MonaLisa viewer mode: ESC hint and settings dialog */}
+        {isMonaLisaMode && (
           <>
             {/* Subtle ESC hint */}
             <div className="fixed bottom-4 right-4 text-xs text-white/50 hover:text-white/80 transition-colors pointer-events-none">
@@ -649,16 +1083,16 @@ export default function App() {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex gap-2">
+                      <div className="flex gap-3">
                         <button
                           onClick={() => setShowViewerSettings(false)}
-                          className="flex-1 px-4 py-3.5 rounded-lg bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all hover:bg-amber-900/20 hover:border-amber-900/30 font-medium text-sm"
+                          className="flex-1 px-4 py-4 rounded-lg bg-amber-900/10 text-amber-900 border border-amber-900/20 transition-all hover:bg-amber-900/20 hover:border-amber-900/30 font-medium text-sm"
                         >
                           Close
                         </button>
                         <button
                           onClick={handleLogout}
-                          className="flex-1 px-4 py-3.5 rounded-lg bg-red-900/10 text-red-900 border border-red-900/20 transition-all hover:bg-red-900/20 hover:border-red-900/30 font-medium text-sm"
+                          className="flex-1 px-4 py-4 rounded-lg bg-red-900/10 text-red-900 border border-red-900/20 transition-all hover:bg-red-900/20 hover:border-red-900/30 font-medium text-sm"
                         >
                           Sign Out
                         </button>
@@ -672,6 +1106,30 @@ export default function App() {
         )}
 
         <Toaster />
+        
+        {/* Mobile Onboarding */}
+        {showMobileOnboarding && (
+          <MobileOnboarding 
+            onComplete={() => {
+              setShowMobileOnboarding(false);
+              setForceShowMobileOnboarding(false);
+              markMobileAsSeen();
+            }}
+            forceShow={forceShowMobileOnboarding}
+          />
+        )}
+        
+        {/* Desktop Onboarding */}
+        {showDesktopOnboarding && (
+          <DesktopOnboarding 
+            onComplete={() => {
+              setShowDesktopOnboarding(false);
+              setForceShowDesktopOnboarding(false);
+              markDesktopAsSeen();
+            }}
+            forceShow={forceShowDesktopOnboarding}
+          />
+        )}
         </div>
       </DndProvider>
     </>

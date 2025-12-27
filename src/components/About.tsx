@@ -1,5 +1,7 @@
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
+
+const MOBILE_BREAKPOINT = 768;
 
 const maskingTapeTextures = [
   '/assets/images/maskingtape/10c87e82-99cf-4df0-b47b-8f650d4b21e9_rw_1920.png',
@@ -15,16 +17,30 @@ const maskingTapeTextures = [
   '/assets/images/maskingtape/f08402eb-b275-4034-8d66-4981f93ad679_rw_1200.png',
 ];
 
+// Use a fixed default for SSR, then randomize on client
+const DEFAULT_TAPE_INDEX = 0;
+const DEFAULT_ROTATION = 0;
+
 export default function About() {
-  // Select random masking tape and rotation once
-  const tapeTexture = useMemo(() => 
-    maskingTapeTextures[Math.floor(Math.random() * maskingTapeTextures.length)],
-    []
-  );
-  const tapeRotation = useMemo(() => 
-    (Math.random() - 0.5) * 10,
-    []
-  );
+  const [isMobile, setIsMobile] = useState(false);
+  const [tapeTexture, setTapeTexture] = useState(maskingTapeTextures[DEFAULT_TAPE_INDEX]);
+  const [tapeRotation, setTapeRotation] = useState(DEFAULT_ROTATION);
+
+  // Set random values only on client to avoid hydration mismatch
+  useEffect(() => {
+    setTapeTexture(maskingTapeTextures[Math.floor(Math.random() * maskingTapeTextures.length)]);
+    setTapeRotation((Math.random() - 0.5) * 10);
+  }, []);
+
+  // Check if mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   return (
     <div className="w-screen h-screen overflow-hidden relative">
@@ -67,13 +83,42 @@ export default function About() {
         />
       </div>
 
+      {/* Mobile Back FAB */}
+      {isMobile && (
+        <a
+          href="/"
+          style={{
+            position: 'fixed',
+            zIndex: 50,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            top: '12px',
+            left: '12px',
+            width: '40px',
+            height: '40px',
+            borderRadius: '10px',
+            background: `url(${tapeTexture})`,
+            backgroundSize: '200% 200%',
+            backgroundPosition: 'center',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            textDecoration: 'none',
+          }}
+        >
+          <ArrowLeft size={18} style={{ color: '#44250f' }} />
+        </a>
+      )}
+
       {/* Centered About Post-it */}
-      <div className="absolute inset-0 flex items-center justify-center p-8">
+      <div 
+        className="absolute inset-0 flex items-center justify-center"
+        style={{ padding: isMobile ? '16px' : '32px' }}
+      >
         <div
           className="relative"
           style={{
             transform: 'rotate(-1deg)',
-            maxWidth: '600px',
+            maxWidth: isMobile ? '100%' : '600px',
             width: '100%',
           }}
         >
@@ -81,9 +126,9 @@ export default function About() {
           <div 
             className="absolute top-0 left-1/2 z-10 pointer-events-none"
             style={{
-              width: '80px',
-              height: '35px',
-              transform: `translateX(-50%) translateY(-18px) rotate(${tapeRotation}deg)`,
+              width: isMobile ? '60px' : '80px',
+              height: isMobile ? '26px' : '35px',
+              transform: `translateX(-50%) translateY(-${isMobile ? '13px' : '18px'}) rotate(${tapeRotation}deg)`,
             }}
           >
             <img 
@@ -107,35 +152,49 @@ export default function About() {
                 0 8px 20px rgba(0, 0, 0, 0.1),
                 inset 0 -1px 2px rgba(0, 0, 0, 0.05)
               `,
-              padding: '48px 64px',
+              padding: isMobile ? '32px 24px' : '48px 64px',
             }}
           >
-            {/* Back button */}
-            <a
-              href="/"
-              className="absolute top-4 -left-8 flex items-center gap-2 px-3 py-2 rounded-md text-amber-900/80 transition-all hover:bg-amber-900/10"
-            >
-              <ArrowLeft size={16} />
-              <span className="text-sm font-medium">Back to Board</span>
-            </a>
+            {/* Desktop Back button */}
+            {!isMobile && (
+              <a
+                href="/"
+                className="absolute top-4 -left-8 flex items-center gap-2 px-3 py-2 rounded-md text-amber-900/80 transition-all hover:bg-amber-900/10"
+              >
+                <ArrowLeft size={16} />
+                <span className="text-sm font-medium">Back to Board</span>
+              </a>
+            )}
 
             {/* Content */}
-            <div className="mt-12 space-y-6">
-              <h1 className="text-3xl font-bold text-amber-900/90 text-center">
-                About onethreenine.net
+            <div style={{ marginTop: isMobile ? '8px' : '48px' }} className="space-y-4 md:space-y-6">
+              <h1 
+                className="text-amber-900/90 text-center font-bold"
+                style={{ fontSize: isMobile ? '1.5rem' : '1.875rem' }}
+              >
+                onethreenine.net
               </h1>
 
               <div className="space-y-4 text-amber-900/80">
-                <p className="leading-relaxed">
-                  
-                </p>
-                <p className="leading-relaxed">
-                A web accessible corkboard broadcast on our apartment's wall.<br/>Leave us a note :)
+                <p 
+                  className="leading-relaxed text-center"
+                  style={{ fontSize: isMobile ? '0.9rem' : '1rem' }}
+                >
+                  A web accessible corkboard broadcast on our apartment's wall.<br/>Leave us a note :)
                 </p>
 
-                {/* Images */}
-                <div className="grid grid-cols-2 gap-4 my-8">
-                  <div className="aspect-square bg-amber-900/5 rounded-lg overflow-hidden">
+                {/* Image */}
+                <div 
+                  className="flex justify-center"
+                  style={{ margin: isMobile ? '16px 0' : '32px 0' }}
+                >
+                  <div 
+                    className="bg-amber-900/5 rounded-lg overflow-hidden"
+                    style={{ 
+                      width: isMobile ? '100%' : '50%',
+                      aspectRatio: '16/9',
+                    }}
+                  >
                     <img 
                       src="/assets/images/thumb.jpg" 
                       alt="onethreenine preview" 
@@ -144,10 +203,12 @@ export default function About() {
                   </div>
                 </div>
 
-                <p className="leading-relaxed text-gray-700" style={{ fontSize: '0.8em' }}>
-                by <a href="https://teddywarner.org" target="_blank" style={{ textDecoration: 'underline' }}>Teddy</a> - see <a href="/timeline" style={{ textDecoration: 'underline' }}>past boards</a>
+                <p 
+                  className="leading-relaxed text-gray-700 text-center"
+                  style={{ fontSize: isMobile ? '0.75rem' : '0.8rem' }}
+                >
+                  by <a href="https://teddywarner.org" target="_blank" style={{ textDecoration: 'underline' }}>Teddy</a> - see <a href="/timeline" style={{ textDecoration: 'underline' }}>past boards</a>
                 </p>
-
               </div>
             </div>
           </div>
@@ -156,4 +217,3 @@ export default function About() {
     </div>
   );
 }
-

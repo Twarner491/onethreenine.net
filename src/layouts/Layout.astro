@@ -12,7 +12,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Disable browser pinch-to-zoom - the app handles its own scaling -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="description" content={description}>
   
   <!-- Favicon -->
@@ -41,7 +42,17 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site);
       width: 100%;
       height: 100%;
       overflow: hidden;
+      /* Prevent pinch-to-zoom gestures on the page */
+      touch-action: pan-x pan-y;
+      /* Prevent iOS text size adjustment on orientation change */
+      -webkit-text-size-adjust: 100%;
     }
+    
+    /* 
+     * Note: touch-action is handled dynamically by React components
+     * to allow proper drag-and-drop in jiggle mode while preventing
+     * zoom/scroll in pan mode
+     */
   </style>
 </head>
 <body>
