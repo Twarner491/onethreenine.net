@@ -966,49 +966,86 @@ export default function App() {
     );
   }
 
+  // Art TV content (shared between normal and MonaLisa modes)
+  const mainContent = (
+    <>
+      <PegboardCanvas 
+        items={items}
+        onUpdateItem={handleUpdateItem}
+        onDeleteItem={handleDeleteItem}
+        isEditMode={!!currentUser && !isViewerMode}
+        users={users}
+        currentUserId={currentUser?.id}
+        selectedItemId={selectedItemId}
+        onSelectItem={setSelectedItemId}
+        isViewerMode={isViewerMode}
+        isJiggleMode={isJiggleMode}
+        onEnterJiggleMode={() => setIsJiggleMode(true)}
+        onExitJiggleMode={() => setIsJiggleMode(false)}
+        isMobile={isMobile}
+        onBringToFront={handleBringToFront}
+        onSendToBack={handleSendToBack}
+        isArtTVMode={isMonaLisaMode}
+      />
+    </>
+  );
+
   return (
     <>
       <DndProvider backend={dndBackend} options={dndOptions}>
-        <div className="w-screen h-screen overflow-hidden">
-          <PegboardCanvas 
-            items={items}
-            onUpdateItem={handleUpdateItem}
-            onDeleteItem={handleDeleteItem}
-            isEditMode={!!currentUser && !isViewerMode}
-            users={users}
-            currentUserId={currentUser?.id}
-            selectedItemId={selectedItemId}
-            onSelectItem={setSelectedItemId}
-            isViewerMode={isViewerMode}
-            isJiggleMode={isJiggleMode}
-            onEnterJiggleMode={() => setIsJiggleMode(true)}
-            onExitJiggleMode={() => setIsJiggleMode(false)}
-            isMobile={isMobile}
-            onBringToFront={handleBringToFront}
-            onSendToBack={handleSendToBack}
-          />
-        
-        {/* Show toolbar for everyone, but viewer mode gets modified toolbar */}
-        <Toolbar 
-          onAddItem={handleAddItem}
-          currentUser={currentUser}
-          onLogin={handleLogin}
-          onLogout={handleLogout}
-          isViewerMode={isMonaLisaMode}
-          isUserViewerMode={isUserViewerMode}
-          onToggleViewerMode={() => setIsUserViewerMode(prev => !prev)}
-          isJiggleMode={isJiggleMode}
-          onExitJiggleMode={() => setIsJiggleMode(false)}
-        />
+        {/* MonaLisa Art TV Mode - fixed 16:9 aspect ratio with vignette frame */}
+        {isMonaLisaMode ? (
+          <div 
+            className="w-screen h-screen overflow-hidden flex items-center justify-center"
+            style={{ backgroundColor: '#000' }}
+          >
+            {/* Fixed 1.72:1 aspect ratio container (55" art TV) */}
+            <div 
+              className="relative"
+              style={{
+                width: 'min(100vw, calc(100vh * 1.72))',
+                height: 'min(100vh, calc(100vw / 1.72))',
+                overflow: 'hidden',
+              }}
+            >
+              {mainContent}
+              
+              {/* Art TV vignette frame overlay */}
+              <div 
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  boxShadow: `
+                    inset 0 0 100px 40px rgba(0, 0, 0, 0.7),
+                    inset 0 0 200px 80px rgba(0, 0, 0, 0.4),
+                    inset 0 0 300px 100px rgba(0, 0, 0, 0.2)
+                  `,
+                  zIndex: 9999,
+                }}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="w-screen h-screen overflow-hidden">
+            {mainContent}
+          
+            {/* Show toolbar for everyone, but viewer mode gets modified toolbar */}
+            <Toolbar 
+              onAddItem={handleAddItem}
+              currentUser={currentUser}
+              onLogin={handleLogin}
+              onLogout={handleLogout}
+              isViewerMode={isMonaLisaMode}
+              isUserViewerMode={isUserViewerMode}
+              onToggleViewerMode={() => setIsUserViewerMode(prev => !prev)}
+              isJiggleMode={isJiggleMode}
+              onExitJiggleMode={() => setIsJiggleMode(false)}
+            />
+          </div>
+        )}
 
-        {/* MonaLisa viewer mode: ESC hint and settings dialog */}
+        {/* MonaLisa art TV mode: settings dialog (no visible hints) */}
         {isMonaLisaMode && (
           <>
-            {/* Subtle ESC hint */}
-            <div className="fixed bottom-4 right-4 text-xs text-white/50 hover:text-white/80 transition-colors pointer-events-none">
-              Press ESC for settings
-            </div>
-
             {/* Settings dialog */}
             {showViewerSettings && (
               <>
@@ -1123,7 +1160,6 @@ export default function App() {
             forceShow={forceShowDesktopOnboarding}
           />
         )}
-        </div>
       </DndProvider>
     </>
   );

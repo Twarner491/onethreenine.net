@@ -20,6 +20,7 @@ interface PegboardCanvasProps {
   isMobile?: boolean;
   onBringToFront?: (id: string) => void;
   onSendToBack?: (id: string) => void;
+  isArtTVMode?: boolean;
 }
 
 // 54.6" displays are typically 16:9 aspect ratio
@@ -27,7 +28,7 @@ const TARGET_ASPECT_RATIO = 16 / 9;
 const WORKSPACE_WIDTH = 1920; // Base width for element positioning
 const WORKSPACE_HEIGHT = 1080; // Base height for element positioning (16:9)
 
-export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, users, currentUserId, selectedItemId, onSelectItem, isViewerMode, isJiggleMode, onEnterJiggleMode, onExitJiggleMode, isMobile: isMobileProp, onBringToFront, onSendToBack }: PegboardCanvasProps) {
+export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, users, currentUserId, selectedItemId, onSelectItem, isViewerMode, isJiggleMode, onEnterJiggleMode, onExitJiggleMode, isMobile: isMobileProp, onBringToFront, onSendToBack, isArtTVMode }: PegboardCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
   
@@ -314,10 +315,10 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
           }}
         />
 
-        {/* Monalisa Viewer Mode Overlays */}
-        {isViewerMode && (
+        {/* Viewer Mode Overlays (regular viewer mode, not art TV) */}
+        {isViewerMode && !isArtTVMode && (
           <>
-            {/* Strong vignette */}
+            {/* Strong vignette for regular viewer mode */}
             <div 
               className="absolute inset-0 pointer-events-none"
               style={{
@@ -325,11 +326,17 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
                 zIndex: 9990,
               }}
             />
+          </>
+        )}
+        
+        {/* Art TV Mode effects (warm overlay + film grain for realism) */}
+        {isArtTVMode && (
+          <>
             {/* "Real" look shader - subtle warm overlay + multiply to darken/richness */}
             <div 
               className="absolute inset-0 pointer-events-none"
               style={{
-                backgroundColor: 'rgba(30, 20, 10, 0.1)',
+                backgroundColor: 'rgba(30, 20, 10, 0.08)',
                 mixBlendMode: 'multiply',
                 zIndex: 9991,
                 pointerEvents: 'none',
@@ -340,7 +347,7 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
               className="absolute inset-0 pointer-events-none"
               style={{
                 backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\' opacity=\'0.05\'/%3E%3C/svg%3E")',
-                opacity: 0.4,
+                opacity: 0.3,
                 mixBlendMode: 'overlay',
                 zIndex: 9992,
                 pointerEvents: 'none',
