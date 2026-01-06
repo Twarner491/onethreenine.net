@@ -993,36 +993,23 @@ export default function App() {
   return (
     <>
       <DndProvider backend={dndBackend} options={dndOptions}>
-        {/* MonaLisa Art TV Mode - fixed 16:9 aspect ratio with vignette frame */}
+        {/* MonaLisa Art TV Mode - full screen with vignette frame */}
         {isMonaLisaMode ? (
-          <div 
-            className="w-screen h-screen overflow-hidden flex items-center justify-center"
-            style={{ backgroundColor: '#000' }}
-          >
-            {/* Fixed 1.72:1 aspect ratio container (55" art TV) */}
+          <div className="w-screen h-screen overflow-hidden relative">
+            {mainContent}
+            
+            {/* Art TV vignette frame overlay */}
             <div 
-              className="relative"
+              className="absolute inset-0 pointer-events-none"
               style={{
-                width: 'min(100vw, calc(100vh * 1.72))',
-                height: 'min(100vh, calc(100vw / 1.72))',
-                overflow: 'hidden',
+                boxShadow: `
+                  inset 0 0 100px 40px rgba(0, 0, 0, 0.7),
+                  inset 0 0 200px 80px rgba(0, 0, 0, 0.4),
+                  inset 0 0 300px 100px rgba(0, 0, 0, 0.2)
+                `,
+                zIndex: 9999,
               }}
-            >
-              {mainContent}
-              
-              {/* Art TV vignette frame overlay */}
-              <div 
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  boxShadow: `
-                    inset 0 0 100px 40px rgba(0, 0, 0, 0.7),
-                    inset 0 0 200px 80px rgba(0, 0, 0, 0.4),
-                    inset 0 0 300px 100px rgba(0, 0, 0, 0.2)
-                  `,
-                  zIndex: 9999,
-                }}
-              />
-            </div>
+            />
           </div>
         ) : (
           <div className="w-screen h-screen overflow-hidden">
