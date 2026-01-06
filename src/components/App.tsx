@@ -969,24 +969,24 @@ export default function App() {
   // Art TV content (shared between normal and MonaLisa modes)
   const mainContent = (
     <>
-      <PegboardCanvas 
-        items={items}
-        onUpdateItem={handleUpdateItem}
-        onDeleteItem={handleDeleteItem}
-        isEditMode={!!currentUser && !isViewerMode}
-        users={users}
-        currentUserId={currentUser?.id}
-        selectedItemId={selectedItemId}
-        onSelectItem={setSelectedItemId}
-        isViewerMode={isViewerMode}
-        isJiggleMode={isJiggleMode}
-        onEnterJiggleMode={() => setIsJiggleMode(true)}
-        onExitJiggleMode={() => setIsJiggleMode(false)}
-        isMobile={isMobile}
-        onBringToFront={handleBringToFront}
-        onSendToBack={handleSendToBack}
+          <PegboardCanvas 
+            items={items}
+            onUpdateItem={handleUpdateItem}
+            onDeleteItem={handleDeleteItem}
+            isEditMode={!!currentUser && !isViewerMode}
+            users={users}
+            currentUserId={currentUser?.id}
+            selectedItemId={selectedItemId}
+            onSelectItem={setSelectedItemId}
+            isViewerMode={isViewerMode}
+            isJiggleMode={isJiggleMode}
+            onEnterJiggleMode={() => setIsJiggleMode(true)}
+            onExitJiggleMode={() => setIsJiggleMode(false)}
+            isMobile={isMobile}
+            onBringToFront={handleBringToFront}
+            onSendToBack={handleSendToBack}
         isArtTVMode={isMonaLisaMode}
-      />
+          />
     </>
   );
 
@@ -1008,17 +1008,7 @@ export default function App() {
                 overflow: 'hidden',
               }}
             >
-              {/* Scaled down content for TV viewing distance */}
-              <div
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  transform: 'scale(0.6)',
-                  transformOrigin: 'center center',
-                }}
-              >
-                {mainContent}
-              </div>
+              {mainContent}
               
               {/* Art TV vignette frame overlay */}
               <div 
@@ -1037,19 +1027,19 @@ export default function App() {
         ) : (
           <div className="w-screen h-screen overflow-hidden">
             {mainContent}
-          
-            {/* Show toolbar for everyone, but viewer mode gets modified toolbar */}
-            <Toolbar 
-              onAddItem={handleAddItem}
-              currentUser={currentUser}
-              onLogin={handleLogin}
-              onLogout={handleLogout}
-              isViewerMode={isMonaLisaMode}
-              isUserViewerMode={isUserViewerMode}
-              onToggleViewerMode={() => setIsUserViewerMode(prev => !prev)}
-              isJiggleMode={isJiggleMode}
-              onExitJiggleMode={() => setIsJiggleMode(false)}
-            />
+        
+        {/* Show toolbar for everyone, but viewer mode gets modified toolbar */}
+        <Toolbar 
+          onAddItem={handleAddItem}
+          currentUser={currentUser}
+          onLogin={handleLogin}
+          onLogout={handleLogout}
+          isViewerMode={isMonaLisaMode}
+          isUserViewerMode={isUserViewerMode}
+          onToggleViewerMode={() => setIsUserViewerMode(prev => !prev)}
+          isJiggleMode={isJiggleMode}
+          onExitJiggleMode={() => setIsJiggleMode(false)}
+        />
           </div>
         )}
 

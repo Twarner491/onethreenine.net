@@ -125,8 +125,20 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
       setBaseScale(newBaseScale);
       setBaseOffset({ x: offsetX, y: offsetY });
       
+      // Art TV mode: start zoomed out to show more of the board
+      if (isArtTVMode && userZoom === 1) {
+        const initialZoom = 0.65; // Zoom out to 65%
+        setUserZoom(initialZoom);
+        // Center the view
+        const scaledWidth = WORKSPACE_WIDTH * newBaseScale * initialZoom;
+        const scaledHeight = WORKSPACE_HEIGHT * newBaseScale * initialZoom;
+        setPanOffset({
+          x: (viewportWidth - scaledWidth) / 2 - offsetX,
+          y: (viewportHeight - scaledHeight) / 2 - offsetY,
+        });
+      }
       // On mobile, start zoomed in so items are readable
-      if (mobile && userZoom === 1) {
+      else if (mobile && userZoom === 1) {
         // Start at 2x zoom, centered on the middle of the board
         const initialZoom = 2;
         setUserZoom(initialZoom);
@@ -143,7 +155,7 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
     updateLayout();
     window.addEventListener('resize', updateLayout);
     return () => window.removeEventListener('resize', updateLayout);
-  }, [isMobile]);
+  }, [isMobile, isArtTVMode]);
 
   // Touch event handlers for pan and pinch-to-zoom
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
