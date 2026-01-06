@@ -1008,7 +1008,17 @@ export default function App() {
                 overflow: 'hidden',
               }}
             >
-              {mainContent}
+              {/* Scaled down content for TV viewing distance */}
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  transform: 'scale(0.6)',
+                  transformOrigin: 'center center',
+                }}
+              >
+                {mainContent}
+              </div>
               
               {/* Art TV vignette frame overlay */}
               <div 
