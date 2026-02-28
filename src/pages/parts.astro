@@ -1,0 +1,12 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PartsInventory from '../components/PartsInventory.tsx';
+import '../styles/index.css';
+---
+
+<Layout 
+  title="parts bin — onethreenine" 
+  description="Hardware parts inventory for onethreenine"
+>
+  <PartsInventory client:load />
+</Layout>
