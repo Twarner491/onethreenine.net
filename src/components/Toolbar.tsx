@@ -6,6 +6,7 @@ import { Label } from './ui/label';
 import type { User as UserType } from './types';
 import { toast } from 'sonner';
 import { useIsMobile, detectMobile } from './ui/use-mobile';
+import { PushPin } from './PushPin';
 
 interface ToolbarProps {
   onAddItem: (type: 'note' | 'photo' | 'list' | 'receipt') => void;
@@ -89,14 +90,6 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
     }
   }, [rotation, currentUser]);
 
-  const tapeTexture = useMemo(() => 
-    maskingTapeTextures[Math.floor(Math.random() * maskingTapeTextures.length)],
-    []
-  );
-  const tapeRotation = useMemo(() => 
-    (Math.random() - 0.5) * 10,
-    []
-  );
   const fabTapeTexture = useMemo(() => 
     maskingTapeTextures[Math.floor(Math.random() * maskingTapeTextures.length)],
     []
@@ -148,21 +141,18 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
             maxWidth: isMobile ? '320px' : '400px',
           }}
         >
+          {/* Push pin anchor */}
           <div 
-            className="absolute top-0 left-1/2 z-10 pointer-events-none"
+            className="absolute top-0 left-1/2 z-20 pointer-events-none overflow-visible"
             style={{
-              width: isMobile ? '60px' : '80px',
-              height: isMobile ? '26px' : '35px',
-              transform: `translateX(-50%) translateY(-${isMobile ? 14 : 18}px) rotate(${tapeRotation}deg)`,
+              transform: `translateX(-50%) translateY(-${isMobile ? 65 : 78}px)`,
+              overflow: 'visible',
             }}
           >
-            <img 
-              src={tapeTexture}
-              alt="masking tape"
-              className="w-full h-full object-cover"
-              style={{
-                filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
-              }}
+            <PushPin 
+              color="red"
+              rotation={-2}
+              size={isMobile ? 75 : 90} 
             />
           </div>
 
@@ -435,21 +425,18 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
           transformOrigin: 'top left',
         }}
       >
+        {/* Push pin anchor */}
         <div 
-          className="absolute top-0 left-1/2 z-10 pointer-events-none"
+          className="absolute top-0 left-1/2 z-20 pointer-events-none overflow-visible"
           style={{
-            width: '80px',
-            height: '35px',
-            transform: `translateX(-50%) translateY(-18px) rotate(${tapeRotation}deg)`,
+            transform: 'translateX(-50%) translateY(-70px)',
+            overflow: 'visible',
           }}
         >
-          <img 
-            src={tapeTexture}
-            alt="masking tape"
-            className="w-full h-full object-cover"
-            style={{
-              filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
-            }}
+          <PushPin 
+            color="green"
+            rotation={-1}
+            size={80} 
           />
         </div>
 
@@ -724,21 +711,18 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
           maxWidth: 'calc(100vw - 40px)',
         }}
       >
+        {/* Push pin anchor */}
         <div 
-          className="absolute top-0 left-1/2 z-10 pointer-events-none"
+          className="absolute top-0 left-1/2 z-20 pointer-events-none overflow-visible"
           style={{
-            width: '80px',
-            height: '35px',
-            transform: `translateX(-50%) translateY(-18px) rotate(${tapeRotation}deg)`,
+            transform: 'translateX(-50%) translateY(-70px)',
+            overflow: 'visible',
           }}
         >
-          <img 
-            src={tapeTexture}
-            alt="masking tape"
-            className="w-full h-full object-cover"
-            style={{
-              filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
-            }}
+          <PushPin 
+            color="yellow"
+            rotation={1}
+            size={80} 
           />
         </div>
 
@@ -808,21 +792,18 @@ export function Toolbar({ onAddItem, currentUser, onLogin, onLogout, isViewerMod
           }}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Push pin anchor */}
           <div 
-            className="absolute top-0 left-1/2 z-10 pointer-events-none"
+            className="absolute top-0 left-1/2 z-20 pointer-events-none overflow-visible"
             style={{
-              width: '80px',
-              height: '35px',
-              transform: `translateX(-50%) translateY(-18px) rotate(3deg)`,
+              transform: 'translateX(-50%) translateY(-74px)',
+              overflow: 'visible',
             }}
           >
-            <img 
-              src={tapeTexture}
-              alt="masking tape"
-              className="w-full h-full object-cover"
-              style={{
-                filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
-              }}
+            <PushPin 
+              color="blue"
+              rotation={2}
+              size={85} 
             />
           </div>
 
