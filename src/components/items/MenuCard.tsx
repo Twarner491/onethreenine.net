@@ -78,7 +78,7 @@ export function MenuCard({ content }: MenuCardProps) {
       style={{
         width: '320px',
         minHeight: '420px',
-        paddingTop: '32px', // Extra space for tape
+        paddingTop: '32px', // Extra space for push pin
         boxShadow: `
           4px 4px 12px rgba(0,0,0,0.3), 
           0 8px 20px rgba(0,0,0,0.2),
