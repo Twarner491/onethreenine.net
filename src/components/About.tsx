@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useIsMobile } from './ui/use-mobile';
+import { PushPin } from './PushPin';
 
 const maskingTapeTextures = [
   '/assets/images/maskingtape/10c87e82-99cf-4df0-b47b-8f650d4b21e9_rw_1920.png',
@@ -18,11 +19,9 @@ const maskingTapeTextures = [
 
 // Use a fixed default for SSR, then randomize on client
 const DEFAULT_TAPE_INDEX = 0;
-const DEFAULT_ROTATION = 0;
 
 export default function About() {
   const [tapeTexture, setTapeTexture] = useState(maskingTapeTextures[DEFAULT_TAPE_INDEX]);
-  const [tapeRotation, setTapeRotation] = useState(DEFAULT_ROTATION);
   
   // Use robust mobile detection
   const isMobile = useIsMobile();
@@ -30,7 +29,6 @@ export default function About() {
   // Set random values only on client to avoid hydration mismatch
   useEffect(() => {
     setTapeTexture(maskingTapeTextures[Math.floor(Math.random() * maskingTapeTextures.length)]);
-    setTapeRotation((Math.random() - 0.5) * 10);
   }, []);
 
   return (
@@ -113,22 +111,18 @@ export default function About() {
             width: '100%',
           }}
         >
-          {/* Masking tape */}
+          {/* Push pin anchor */}
           <div 
-            className="absolute top-0 left-1/2 z-10 pointer-events-none"
+            className="absolute top-0 left-1/2 z-20 pointer-events-none overflow-visible"
             style={{
-              width: isMobile ? '60px' : '80px',
-              height: isMobile ? '26px' : '35px',
-              transform: `translateX(-50%) translateY(-${isMobile ? '13px' : '18px'}) rotate(${tapeRotation}deg)`,
+              transform: `translateX(-50%) translateY(-${isMobile ? 65 : 78}px)`,
+              overflow: 'visible',
             }}
           >
-            <img 
-              src={tapeTexture}
-              alt="masking tape"
-              className="w-full h-full object-cover"
-              style={{
-                filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
-              }}
+            <PushPin 
+              color="blue"
+              rotation={-1}
+              size={isMobile ? 75 : 90} 
             />
           </div>
 

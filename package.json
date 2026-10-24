@@ -5,9 +5,15 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
+    "start:local": "bash ./start-local.sh",
     "build": "astro check && astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test:all": "bash ./run-tests.sh"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.5",
@@ -62,5 +68,12 @@
     "tailwind-merge": "^3.3.1",
     "typescript": "^5.9.3",
     "vaul": "^1.1.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "happy-dom": "^20.14.6",
+    "vitest": "^5.0.3"
   }
 }

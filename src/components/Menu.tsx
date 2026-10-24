@@ -6,6 +6,7 @@ import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { useIsMobile } from './ui/use-mobile';
+import { PushPin } from './PushPin';
 
 interface MenuItem {
   name: string;
@@ -70,10 +71,6 @@ export default function Menu() {
   // Select random textures once
   const tapeTexture = useMemo(() => 
     maskingTapeTextures[Math.floor(Math.random() * maskingTapeTextures.length)],
-    []
-  );
-  const tapeRotation = useMemo(() => 
-    (Math.random() - 0.5) * 10,
     []
   );
   const paperTexture = useMemo(() => 
@@ -568,22 +565,18 @@ export default function Menu() {
             width: '100%',
           }}
         >
-          {/* Masking tape */}
+          {/* Push pin anchor */}
           <div 
-            className="absolute top-0 left-1/2 z-10 pointer-events-none"
+            className="absolute top-0 left-1/2 z-20 pointer-events-none overflow-visible"
             style={{
-              width: isMobile ? '60px' : '80px',
-              height: isMobile ? '26px' : '35px',
-              transform: `translateX(-50%) translateY(-${isMobile ? '13px' : '18px'}) rotate(${tapeRotation}deg)`,
+              transform: `translateX(-50%) translateY(-${isMobile ? 65 : 78}px)`,
+              overflow: 'visible',
             }}
           >
-            <img 
-              src={tapeTexture}
-              alt="masking tape"
-              className="w-full h-full object-cover"
-              style={{
-                filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
-              }}
+            <PushPin 
+              color="red"
+              rotation={-1}
+              size={isMobile ? 75 : 90} 
             />
           </div>
 
@@ -870,21 +863,18 @@ export default function Menu() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Push pin anchor */}
             <div 
-              className="absolute top-0 left-1/2 z-10 pointer-events-none"
+              className="absolute top-0 left-1/2 z-20 pointer-events-none overflow-visible"
               style={{
-                width: isMobile ? '60px' : '80px',
-                height: isMobile ? '26px' : '35px',
-                transform: `translateX(-50%) translateY(-${isMobile ? '13px' : '18px'}) rotate(2deg)`,
+                transform: `translateX(-50%) translateY(-${isMobile ? 65 : 78}px)`,
+                overflow: 'visible',
               }}
             >
-              <img 
-                src={tapeTexture}
-                alt="masking tape"
-                className="w-full h-full object-cover"
-                style={{
-                  filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
-                }}
+              <PushPin 
+                color="yellow"
+                rotation={2}
+                size={isMobile ? 75 : 85} 
               />
             </div>
 
@@ -949,19 +939,18 @@ export default function Menu() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Push pin anchor */}
             <div 
-              className="absolute top-0 left-1/2 z-10 pointer-events-none"
+              className="absolute top-0 left-1/2 z-20 pointer-events-none overflow-visible"
               style={{
-                width: isMobile ? '60px' : '80px',
-                height: isMobile ? '26px' : '35px',
-                transform: `translateX(-50%) translateY(-${isMobile ? '13px' : '18px'}) rotate(3deg)`,
+                transform: `translateX(-50%) translateY(-${isMobile ? 65 : 78}px)`,
+                overflow: 'visible',
               }}
             >
-              <img 
-                src={tapeTexture}
-                alt="masking tape"
-                className="w-full h-full object-cover"
-                style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))' }}
+              <PushPin 
+                color="purple"
+                rotation={1}
+                size={isMobile ? 75 : 85} 
               />
             </div>
 
