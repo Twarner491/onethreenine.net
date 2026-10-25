@@ -67,6 +67,62 @@ test('same-tick resync requests coalesce into one query', async () => {
   session.dispose();
 });
 
+test('unchanged resyncs preserve snapshot identity, asset timestamp and cache without publishing', async () => {
+  let reads = 0;
+  let writes = 0;
+  const updates: TVState[] = [];
+  const session = new TVBoardSession({ load: async () => {
+    reads++;
+    const content = reads === 1 ? { text: 'same', extra: { a: 1, b: 2 } } : { extra: { b: 2, a: 1 }, text: 'same' };
+    return makeTVSnapshot([{ ...items[0], content }], users, reads * 100);
+  } }, state => updates.push(state), { getItem: () => null, setItem: () => { writes++; } });
+  await session.setRealtimeConnected(true);
+  const original = session.getState().snapshot;
+  await session.refresh();
+  await session.refresh();
+  assert.equal(reads, 3);
+  assert.equal(session.getState().snapshot, original);
+  assert.equal(session.getState().snapshot?.savedAt, 100);
+  assert.equal(updates.length, 1);
+  assert.equal(writes, 1);
+  await session.setOnline(false);
+  await session.setOnline(true);
+  assert.equal(session.getState().connection, 'live');
+  assert.equal(session.getState().snapshot, original);
+  assert.equal(writes, 1);
+  session.dispose();
+});
+
+test('recovery polling is quiet while live and resumes only when disconnected', async () => {
+  let reads = 0;
+  const session = new TVBoardSession({ load: async () => { reads++; return snapshot(); } }, () => {});
+  await session.setRealtimeConnected(true);
+  await session.refreshIfDisconnected();
+  await session.refreshIfDisconnected();
+  assert.equal(reads, 1);
+  await session.setRealtimeConnected(false);
+  await session.refreshIfDisconnected();
+  assert.equal(reads, 2);
+  await session.setRealtimeConnected(true);
+  await session.refreshIfDisconnected();
+  assert.equal(reads, 3);
+  session.dispose();
+});
+
+test('actual content changes publish a fresh monotonic snapshot identity', async () => {
+  let reads = 0;
+  const updates: TVState[] = [];
+  const session = new TVBoardSession({ load: async () => makeTVSnapshot([{ ...items[0], content: { text: String(++reads) } }], users, 100) }, state => updates.push(state));
+  await session.setRealtimeConnected(true);
+  const original = session.getState().snapshot;
+  await session.refresh();
+  assert.notEqual(session.getState().snapshot, original);
+  assert.equal(session.getState().snapshot?.savedAt, 101);
+  assert.equal(session.getState().snapshot?.items[0].content.text, '2');
+  assert.equal(updates.length, 2);
+  session.dispose();
+});
+
 test('a newer resync invalidates an in-flight response and deleted items stay removed', async () => {
   const first = deferred<TVSnapshot>();
   let count = 0;

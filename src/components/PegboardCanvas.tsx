@@ -3,6 +3,7 @@ import { PinnedItem } from './PinnedItem';
 import { CustomDragLayer } from './CustomDragLayer';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useIsMobile } from './ui/use-mobile';
+import { centerTVWorkspace } from '../lib/tv-board-presentation';
 
 interface PegboardCanvasProps {
   items: BoardItem[];
@@ -258,7 +259,7 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
   // Calculate final workspace position
   const workspaceOffset = isMobile 
     ? { x: panOffset.x, y: panOffset.y }
-    : baseOffset;
+    : isArtTVMode && layoutViewport ? centerTVWorkspace(layoutViewport, scale) : baseOffset;
 
   return (
     <>

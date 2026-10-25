@@ -1,5 +1,10 @@
 export const TV_DESIGN_VIEWPORT = { width: 1920, height: 1080 };
 
+/** Center the fixed art workspace after its 65% zoom, without reframing individual cards. */
+export function centerTVWorkspace(viewport: { width: number; height: number }, scale: number) {
+  return { x: (viewport.width - 1920 * scale) / 2, y: (viewport.height - 1080 * scale) / 2 };
+}
+
 /** Keep the art composition independent of Android's logical pixel density. */
 export function fitTVViewport(width: number, height: number) {
   const safeWidth = Number.isFinite(width) && width > 0 ? width : 1920;
@@ -11,6 +16,18 @@ export function fitTVViewport(width: number, height: number) {
 export function backgroundImageURLs(value: string): string[] {
   return [...value.matchAll(/url\((?:"([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|([^)]*))\)/g)]
     .map(match => (match[1] ?? match[2] ?? match[3]).trim());
+}
+
+/** Retry only failed photos/tape images; successfully displayed assets stay untouched. */
+export function retryFailedTVImages(root: HTMLElement): number {
+  let count = 0;
+  for (const image of root.querySelectorAll<HTMLImageElement>('img')) {
+    if (image.complete && (!image.naturalWidth || !image.naturalHeight) && (image.currentSrc || image.src)) {
+      image.src = image.currentSrc || image.src;
+      count++;
+    }
+  }
+  return count;
 }
 
 function aborted() { return new DOMException('Asset check cancelled', 'AbortError'); }
@@ -54,12 +71,9 @@ export async function waitForTVAssets(root: HTMLElement, signal: AbortSignal): P
   }
   await Promise.all([
     ...images.map(image => waitForImage(image, signal)),
-    document.fonts.ready.then(() => {
-      // FontFaceSet.ready also resolves after failed fonts, so check the actual faces.
-      document.fonts.forEach(face => {
-        if (face.status === 'error') throw new Error('Board font unavailable');
-      });
-    }),
+    // FontFaceSet.ready settles after success or failure. The existing CSS fallback
+    // fonts are valid rendered content; an optional Google font must not hide the board.
+    document.fonts.ready,
   ]);
   if (signal.aborted) throw aborted();
 }

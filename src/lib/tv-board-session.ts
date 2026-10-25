@@ -120,6 +120,15 @@ export function readTVCache(storage?: TVStorage): TVSnapshot | null {
   }
 }
 
+// savedAt is a transport timestamp, not new visual content. Stable object-key ordering
+// also avoids redraws when a JSON object's serialization order changes between reads.
+function snapshotDataKey(snapshot: TVSnapshot): string {
+  return JSON.stringify([snapshot.items, snapshot.users, snapshot.viewer], (_key, value: unknown) => {
+    if (!isRecord(value)) return value;
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, value[key]]));
+  });
+}
+
 /** Serial snapshots with a revision fence: an older in-flight response cannot win. */
 export class TVBoardSession {
   private state: TVState;
@@ -131,6 +140,8 @@ export class TVBoardSession {
   private revision = 0;
   private draining: Promise<void> | null = null;
   private controller: AbortController | null = null;
+  private snapshotKey: string | null = null;
+  private publishedState: TVState;
   private readonly source: TVSource;
   private readonly storage?: TVStorage;
   private readonly publish: (state: TVState) => void;
@@ -141,6 +152,8 @@ export class TVBoardSession {
     this.storage = storage;
     const cached = readTVCache(storage);
     this.state = { snapshot: cached, connection: cached ? 'offline' : 'connecting', error: null };
+    this.snapshotKey = cached ? snapshotDataKey(cached) : null;
+    this.publishedState = this.state;
   }
 
   getState(): TVState { return this.state; }
@@ -152,7 +165,11 @@ export class TVBoardSession {
       connection: !this.online || this.state.error ? 'offline' :
         this.realtimeConnected && this.fresh ? 'live' : 'connecting',
     };
-    this.publish(this.state);
+    if (this.state.snapshot !== this.publishedState.snapshot ||
+        this.state.connection !== this.publishedState.connection || this.state.error !== this.publishedState.error) {
+      this.publishedState = this.state;
+      this.publish(this.state);
+    }
   }
 
   setOnline(online: boolean): Promise<void> {
@@ -192,6 +209,11 @@ export class TVBoardSession {
     return this.draining;
   }
 
+  /** Recovery only: a healthy Realtime connection needs no periodic snapshots. */
+  refreshIfDisconnected(): Promise<void> {
+    return this.state.connection === 'live' ? Promise.resolve() : this.refresh();
+  }
+
   private async drain() {
     while (this.dirty && this.online && !this.disposed) {
       this.dirty = false;
@@ -204,8 +226,17 @@ export class TVBoardSession {
         const snapshot = await this.source.load(controller.signal);
         if (this.disposed || revision !== this.revision || controller.signal.aborted) continue;
         this.fresh = true;
-        this.state = { ...this.state, snapshot, error: null };
-        try { this.storage?.setItem(TV_CACHE_KEY, JSON.stringify(snapshot)); } catch { /* storage full/disabled */ }
+        const snapshotKey = snapshotDataKey(snapshot);
+        if (snapshotKey !== this.snapshotKey) {
+          this.snapshotKey = snapshotKey;
+          const nextSnapshot = this.state.snapshot && snapshot.savedAt <= this.state.snapshot.savedAt
+            ? { ...snapshot, savedAt: this.state.snapshot.savedAt + 1 } : snapshot;
+          this.state = { ...this.state, snapshot: nextSnapshot, error: null };
+          try { this.storage?.setItem(TV_CACHE_KEY, JSON.stringify(nextSnapshot)); } catch { /* storage full/disabled */ }
+        } else {
+          // Keep the same object/timestamp so React and native asset capture stay undisturbed.
+          this.state = { ...this.state, error: null };
+        }
         this.emit();
       } catch (error) {
         if (this.disposed || revision !== this.revision) continue;
