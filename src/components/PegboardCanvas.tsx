@@ -21,6 +21,8 @@ interface PegboardCanvasProps {
   onBringToFront?: (id: string) => void;
   onSendToBack?: (id: string) => void;
   isArtTVMode?: boolean;
+  // Optional fixed design viewport for the dedicated TV page; ordinary boards use the window.
+  layoutViewport?: { width: number; height: number };
 }
 
 // 54.6" displays are typically 16:9 aspect ratio
@@ -28,7 +30,7 @@ const TARGET_ASPECT_RATIO = 16 / 9;
 const WORKSPACE_WIDTH = 1920; // Base width for element positioning
 const WORKSPACE_HEIGHT = 1080; // Base height for element positioning (16:9)
 
-export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, users, currentUserId, selectedItemId, onSelectItem, isViewerMode, isJiggleMode, onEnterJiggleMode, onExitJiggleMode, isMobile: isMobileProp, onBringToFront, onSendToBack, isArtTVMode }: PegboardCanvasProps) {
+export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, users, currentUserId, selectedItemId, onSelectItem, isViewerMode, isJiggleMode, onEnterJiggleMode, onExitJiggleMode, isMobile: isMobileProp, onBringToFront, onSendToBack, isArtTVMode, layoutViewport }: PegboardCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
   
@@ -95,8 +97,8 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
     const updateLayout = () => {
       if (!containerRef.current) return;
       
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
+      const viewportWidth = layoutViewport?.width ?? window.innerWidth;
+      const viewportHeight = layoutViewport?.height ?? window.innerHeight;
       const viewportAspect = viewportWidth / viewportHeight;
       // Use the isMobile state which is already updated by the hook
       const mobile = isMobile;
@@ -155,7 +157,7 @@ export function PegboardCanvas({ items, onUpdateItem, onDeleteItem, isEditMode, 
     updateLayout();
     window.addEventListener('resize', updateLayout);
     return () => window.removeEventListener('resize', updateLayout);
-  }, [isMobile, isArtTVMode]);
+  }, [isMobile, isArtTVMode, layoutViewport?.width, layoutViewport?.height]);
 
   // Touch event handlers for pan and pinch-to-zoom
   const handleTouchStart = useCallback((e: React.TouchEvent) => {

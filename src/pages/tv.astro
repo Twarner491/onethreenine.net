@@ -1,0 +1,30 @@
+---
+import TVBoard from '../components/TVBoard';
+import '../styles/index.css';
+---
+<!doctype html>
+<html lang="en" data-tv-viewer-ready="false" data-tv-assets-ready="false" data-tv-connection="connecting">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <link rel="icon" type="image/png" href="/assets/images/favicon.png" />
+    <title>onethreenine</title>
+  </head>
+  <body>
+    <TVBoard client:load />
+    <noscript>The corkboard needs JavaScript to show live changes.</noscript>
+  </body>
+</html>
+<style is:global>
+  html, body, .tv-board { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #171411; }
+  html, body { position: fixed; inset: 0; }
+  .tv-board { position: absolute; inset: 0; }
+  .tv-art { position: absolute; transform-origin: top left; pointer-events: none; user-select: none; }
+  .tv-vignette { position: absolute; inset: 0; pointer-events: none; z-index: 9999;
+    box-shadow: inset 0 0 100px 40px rgb(0 0 0 / 70%), inset 0 0 200px 80px rgb(0 0 0 / 40%), inset 0 0 300px 100px rgb(0 0 0 / 20%); }
+  .tv-loading { height: 100%; display: grid; place-items: center; color: #ddd7cf; font: 22px system-ui, sans-serif; }
+  .tv-status { position: fixed; bottom: 18px; right: 24px; padding: 6px 10px; border-radius: 5px;
+    z-index: 10000; background: rgb(0 0 0 / 65%); color: #dedad4; font: 14px system-ui, sans-serif; }
+</style>

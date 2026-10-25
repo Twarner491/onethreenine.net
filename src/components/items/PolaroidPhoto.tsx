@@ -1,7 +1,6 @@
 import { Camera, Upload, Loader2 } from 'lucide-react';
 import { Input } from '../ui/input';
 import { useState, useRef } from 'react';
-import { uploadImage } from '../../lib/supabase';
 import { toast } from 'sonner';
 
 interface PolaroidPhotoProps {
@@ -17,6 +16,7 @@ export function PolaroidPhoto({ content, onChange, isEditMode, userId }: Polaroi
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!isEditMode) return;
     const file = e.target.files?.[0];
     
     if (!file) {
@@ -45,6 +45,8 @@ export function PolaroidPhoto({ content, onChange, isEditMode, userId }: Polaroi
     const toastId = toast.loading('Uploading image...');
 
     try {
+      // Display-only pages should not initialize the site's persistent Auth client.
+      const { uploadImage } = await import('../../lib/supabase');
       const imageUrl = await uploadImage(file, userId);
       
       // Update content with new image URL
