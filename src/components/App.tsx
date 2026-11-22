@@ -20,6 +20,7 @@ import {
 } from '../lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useIsMobile, detectMobile } from './ui/use-mobile';
+import { PushPin } from './PushPin';
 
 // Debounce utility
 function debounce<T extends (...args: any[]) => void>(func: T, wait: number): T {
@@ -1054,22 +1055,18 @@ export default function App() {
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {/* Masking tape */}
+                  {/* Push pin anchor */}
                   <div 
-                    className="absolute top-0 left-1/2 z-10 pointer-events-none"
+                    className="absolute top-0 left-1/2 z-20 pointer-events-none overflow-visible"
                     style={{
-                      width: '80px',
-                      height: '35px',
-                      transform: `translateX(-50%) translateY(-18px) rotate(3deg)`,
+                      transform: 'translateX(-50%) translateY(-74px)',
+                      overflow: 'visible',
                     }}
                   >
-                    <img 
-                      src="/assets/images/maskingtape/2ef85379-640c-4e19-9ed3-8ba8485914ae_rw_3840.png"
-                      alt="masking tape"
-                      className="w-full h-full object-cover"
-                      style={{
-                        filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
-                      }}
+                    <PushPin 
+                      color="blue"
+                      rotation={2}
+                      size={85} 
                     />
                   </div>
 

@@ -6,6 +6,7 @@ import { ListCard } from './items/ListCard';
 import { Receipt } from './items/Receipt';
 import { MenuCard } from './items/MenuCard';
 import { EventCard } from './items/EventCard';
+import { PushPin } from './PushPin';
 import { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Trash2 } from 'lucide-react';
@@ -49,30 +50,29 @@ const isTouchDevice = () => {
   return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 };
 
-const maskingTapeTextures = [
-  '/assets/images/maskingtape/10c87e82-99cf-4df0-b47b-8f650d4b21e9_rw_1920.png',
-  '/assets/images/maskingtape/1672c350-9ee4-4030-bca2-abbf9a2756d7_rw_600.png',
-  '/assets/images/maskingtape/2ef85379-640c-4e19-9ed3-8ba8485914ae_rw_3840.png',
-  '/assets/images/maskingtape/3f238238-e95b-48db-8685-59ae3016ff81_rw_1920.png',
-  '/assets/images/maskingtape/494681b1-8ef8-400e-a219-50102c1ee98b_rw_1200.png',
-  '/assets/images/maskingtape/5c1ae790-9d7f-40f8-9fe8-0601ef68794d_rw_600.png',
-  '/assets/images/maskingtape/884001be-0d19-4cd9-8f07-f930d2f0e6ee_rw_1200.png',
-  '/assets/images/maskingtape/9e4367ef-5bd2-44f2-8779-3b4fdd3f696a_rw_1920.png',
-  '/assets/images/maskingtape/a05a2d05-7a39-433e-bf76-597003f7789b_rw_1920.png',
-  '/assets/images/maskingtape/d868c31c-996d-40bd-ace9-324d7457e1fc_rw_600.png',
-  '/assets/images/maskingtape/f08402eb-b275-4034-8d66-4981f93ad679_rw_1200.png',
-];
-
 export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, currentUserId, onMobileEditingChange, isSelected, onSelect, onDeselect, scale, isJiggleMode, onEnterJiggleMode, isMobile, onEdgePan, onBringToFront, onSendToBack, maxZIndex, minZIndex, activeContextMenuId, onContextMenuOpen, readOnlyContextMenu }: PinnedItemProps) {
-  // Select random masking tape and rotation once and keep it consistent
-  const tapeTexture = useMemo(() => 
-    maskingTapeTextures[Math.floor(Math.random() * maskingTapeTextures.length)],
-    []
-  );
-  const tapeRotation = useMemo(() => 
-    (Math.random() - 0.5) * 10, // Random rotation between -5 and 5 degrees
-    []
-  );
+  // Deterministic push pin styling & 3D insertion angle per item (angled forward toward the viewer)
+  const pinData = useMemo(() => {
+    // Colors matching the physical push pins in reference photo (push-pins-gallery.webp)
+    const colors = ['red', 'yellow', 'blue', 'green', 'white', 'orange', 'purple'];
+    let hash = 0;
+    const str = item.id || 'pin';
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+    }
+    const absHash = Math.abs(hash);
+    const color = colors[absHash % colors.length];
+
+    // Natural slight insertion angles:
+    // rotation: subtle 2D spin between -8° and +8°
+    const rotation = ((absHash % 17) - 8) * 0.9;
+    // tiltX: head angled directly toward viewer (24° to 35° pitch)
+    const tiltX = 24 + (absHash % 12);
+    // tiltY: slight left/right lean angle between -7° and +7°
+    const tiltY = ((Math.floor(absHash / 7) % 15) - 7) * 0.9;
+
+    return { color, rotation, tiltX, tiltY };
+  }, [item.id]);
   
   // Random jiggle animation delay for variety
   const jiggleDelay = useMemo(() => Math.random() * 0.3, []);
@@ -853,22 +853,20 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
           willChange: 'transform',
         }}
       >
-        {/* Masking tape */}
+        {/* Push pin anchor */}
         <div 
-          className="absolute top-0 left-1/2 z-10 pointer-events-none"
+          className="absolute top-0 left-1/2 z-20 pointer-events-none overflow-visible"
           style={{
-            width: '80px',
-            height: '35px',
-            transform: `translateX(-50%) translateX(8px) translateY(-18px) rotate(${tapeRotation}deg)`,
+            transform: 'translateX(-50%) translateY(-78px)',
+            overflow: 'visible',
           }}
         >
-          <img 
-            src={tapeTexture}
-            alt="masking tape"
-            className="w-full h-full object-cover"
-            style={{
-              filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
-            }}
+          <PushPin 
+            color={pinData.color} 
+            rotation={pinData.rotation} 
+            tiltX={pinData.tiltX} 
+            tiltY={pinData.tiltY} 
+            size={90} 
           />
         </div>
         
@@ -1228,22 +1226,20 @@ export function PinnedItem({ item, onUpdate, onDelete, isEditMode, users, curren
           ...selectionStyle,
         }}
       >
-      {/* Masking tape */}
+      {/* Push pin anchor */}
       <div 
-        className="absolute top-0 left-1/2 z-10 pointer-events-none"
+        className="absolute top-0 left-1/2 z-20 pointer-events-none overflow-visible"
         style={{
-          width: '80px',
-          height: '35px',
-          transform: `translateX(-50%) translateX(8px) translateY(-18px) rotate(${tapeRotation}deg)`,
+          transform: 'translateX(-50%) translateY(-78px)',
+          overflow: 'visible',
         }}
       >
-        <img 
-          src={tapeTexture}
-          alt="masking tape"
-          className="w-full h-full object-cover"
-          style={{
-            filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
-          }}
+        <PushPin 
+          color={pinData.color} 
+          rotation={pinData.rotation} 
+          tiltX={pinData.tiltX} 
+          tiltY={pinData.tiltY} 
+          size={90} 
         />
       </div>
       
