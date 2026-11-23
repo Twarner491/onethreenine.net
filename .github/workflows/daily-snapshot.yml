@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write  # Needed to commit thumbnail back to repo
 
+concurrency:
+  group: daily-board-snapshot
+  cancel-in-progress: false
+
 jobs:
   create-snapshot:
     runs-on: ubuntu-latest
@@ -53,10 +57,33 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check thumbnail inputs
+        id: thumbnail
+        env:
+          SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          digest=$(node scripts/board-thumbnail-fingerprint.mjs)
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ||
+                ! -s public/assets/images/thumb.png ||
+                ! -s public/assets/images/thumb.jpg ||
+                ! -f .github/board-thumbnail.sha256 ||
+                "$digest" != "$(cat .github/board-thumbnail.sha256)" ]]; then
+            echo "capture=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Board inputs match the previous capture."
+          fi
+
       - name: Install Puppeteer
-        run: npm install puppeteer
+        if: steps.thumbnail.outputs.capture == 'true'
+        run: npm install --no-save --package-lock=false puppeteer
 
       - name: Generate Thumbnail Screenshot
+        if: steps.thumbnail.outputs.capture == 'true'
         env:
           SITE_URL: https://onethreenine.net
         run: |
@@ -86,13 +113,14 @@ jobs:
             
             // Wait for the board to fully render (wait for items to load)
             console.log('Waiting for board to render...');
-            await page.waitForSelector('[data-corkboard]', { timeout: 30000 }).catch(() => {
-              console.log('Corkboard selector not found, waiting additional time...');
-            });
+            await page.waitForSelector('[data-corkboard]', { timeout: 30000 });
             
             // Give extra time for images and content to load
             await new Promise(resolve => setTimeout(resolve, 5000));
             
+            await page.waitForFunction(() => [...document.querySelectorAll('[data-corkboard] img')]
+              .every(image => image.complete));
+
             // Hide any UI elements (toolbar, etc.) for clean screenshot
             await page.evaluate(() => {
               // Hide toolbar and any overlays
@@ -133,21 +161,30 @@ jobs:
             
             await browser.close();
             console.log('Browser closed.');
-          })();
+          })().catch(error => { console.error(error); process.exit(1); });
           EOF
 
       - name: Commit and push thumbnail
+        if: steps.thumbnail.outputs.capture == 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+          CAPTURE_DIGEST: ${{ steps.thumbnail.outputs.digest }}
         run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          
-          # Check if there are changes to commit
-          if git diff --quiet public/assets/images/thumb.png public/assets/images/thumb.jpg; then
-            echo "No changes to thumbnail, skipping commit"
-          else
-            git add public/assets/images/thumb.png public/assets/images/thumb.jpg
-            git commit -m "📸 Update daily thumbnail - $(date -u +%Y-%m-%d)"
-            git push
-            echo "✅ Thumbnail committed and pushed!"
+          current_digest=$(node scripts/board-thumbnail-fingerprint.mjs)
+          if [[ "$current_digest" != "$CAPTURE_DIGEST" ]]; then
+            echo "Board changed during capture. Keeping the previous thumbnail."
+            exit 0
           fi
 
+          printf '%s\n' "$CAPTURE_DIGEST" > .github/board-thumbnail.sha256
+          git add public/assets/images/thumb.png public/assets/images/thumb.jpg .github/board-thumbnail.sha256
+          if git diff --cached --quiet; then
+            echo "Thumbnail already current."
+            exit 0
+          fi
+
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git commit -m "📸 Update daily thumbnail - $(date -u +%Y-%m-%d)"
+          git push
