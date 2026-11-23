@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import sharp from 'sharp';
-import { displayCopy, originalObjectPath, optimizeBoardPhotos } from '../scripts/optimize-board-photos.mjs';
+import { displayCopy, originalObjectPath, optimizeBoardPhotos, publishDisplay } from '../scripts/optimize-board-photos.mjs';
 
 const origin = 'https://test.supabase.co';
 const originalUrl = origin + '/storage/v1/object/public/board-images/u/1.png';
@@ -80,4 +80,24 @@ test('a storage failure leaves the row eligible for a safe retry', async () => {
   const result = await optimizeBoardPhotos([{ id: 'one', content: { imageUrl: originalUrl } }], io, true);
   assert.equal(result.updated, 0);
   assert.deepEqual(result.errors, [{ item: 'one', message: 'upload unavailable' }]);
+});
+
+test('publication verifies the nested public URL returned by the Storage SDK', async () => {
+  const expected = origin + '/storage/v1/object/public/board-display-images/u/photo.png/hash.webp';
+  const bytes = Buffer.from('smaller image');
+  const target = {
+    async upload(path, body, options) {
+      assert.equal(path, 'u/photo.png/hash.webp');
+      assert.equal(body, bytes);
+      assert.equal(options.upsert, false);
+      return { error: null };
+    },
+    getPublicUrl() { return { data: { publicUrl: expected } }; },
+  };
+  const result = await publishDisplay(target, 'u/photo.png/hash.webp', bytes, async (url, options) => {
+    assert.equal(url, expected);
+    assert.equal(options.method, 'HEAD');
+    return new Response(null, { headers: { 'content-length': String(bytes.length), 'content-type': 'image/webp' } });
+  });
+  assert.equal(result, expected);
 });

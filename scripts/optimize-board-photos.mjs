@@ -86,6 +86,24 @@ export async function optimizeBoardPhotos(items, io, apply) {
   return { candidates: changes.length, updated, originalBytes, displayBytes, errors };
 }
 
+export async function publishDisplay(target, path, bytes, fetchAsset = fetch) {
+  const { error } = await target.upload(path, bytes, {
+    upsert: false,
+    contentType: 'image/webp',
+    cacheControl: '31536000',
+  });
+  // The name is a hash of the exact bytes, and only trusted roles write this bucket.
+  if (error && error.statusCode !== '409' && error.statusCode !== '400') throw new Error(error.message);
+
+  const { data: { publicUrl } } = target.getPublicUrl(path);
+  const response = await fetchAsset(publicUrl, { method: 'HEAD', signal: AbortSignal.timeout(15_000) });
+  if (!response.ok || Number(response.headers.get('content-length')) !== bytes.length ||
+      response.headers.get('content-type') !== 'image/webp') {
+    throw new Error(error?.message ?? 'Could not verify the public display image');
+  }
+  return publicUrl;
+}
+
 function dataOrThrow({ data, error }) {
   if (error) throw new Error(error.message);
   return data;
@@ -124,21 +142,7 @@ async function main() {
         bucketReady = true;
       }
 
-      const { error } = await target.upload(path, bytes, {
-        upsert: false,
-        contentType: 'image/webp',
-        cacheControl: '31536000',
-      });
-      // The name is a hash of the exact bytes, and only trusted roles write this bucket.
-      if (error && error.statusCode !== '409' && error.statusCode !== '400') throw new Error(error.message);
-
-      const { publicUrl } = target.getPublicUrl(path);
-      const response = await fetch(publicUrl, { method: 'HEAD', signal: AbortSignal.timeout(15_000) });
-      if (!response.ok || Number(response.headers.get('content-length')) !== bytes.length ||
-          response.headers.get('content-type') !== 'image/webp') {
-        throw new Error(error?.message ?? 'Could not verify the public display image');
-      }
-      return publicUrl;
+      return publishDisplay(target, path, bytes);
     },
     async swap(changes) {
       return dataOrThrow(await client.rpc('swap_board_photo_urls', { changes }));
