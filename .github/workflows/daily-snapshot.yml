@@ -4,7 +4,12 @@ on:
   schedule:
     # Run every day at 11:59 PM UTC (adjust timezone as needed)
     - cron: '59 23 * * *'
-  workflow_dispatch:  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      thumbnail_only:
+        description: Check for a thumbnail update without saving a daily snapshot
+        type: boolean
+        default: false
 
 permissions:
   contents: write  # Needed to commit thumbnail back to repo
@@ -23,6 +28,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Daily Snapshot via Supabase RPC
+        if: github.event_name != 'workflow_dispatch' || !inputs.thumbnail_only
         env:
           SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
@@ -55,7 +61,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Install dependencies
         run: npm ci
@@ -63,12 +69,13 @@ jobs:
       - name: Check thumbnail inputs
         id: thumbnail
         env:
+          FORCE_THUMBNAIL: ${{ github.event_name == 'workflow_dispatch' && !inputs.thumbnail_only }}
           SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
         run: |
           digest=$(node scripts/board-thumbnail-fingerprint.mjs)
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
-          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ||
+          if [[ "$FORCE_THUMBNAIL" == true ||
                 ! -s public/assets/images/thumb.png ||
                 ! -s public/assets/images/thumb.jpg ||
                 ! -f .github/board-thumbnail.sha256 ||
@@ -80,7 +87,8 @@ jobs:
 
       - name: Install Puppeteer
         if: steps.thumbnail.outputs.capture == 'true'
-        run: npm install --no-save --package-lock=false puppeteer
+        # Keep the locked Supabase dependencies in the checkout intact for the second fingerprint.
+        run: npm install --prefix "$RUNNER_TEMP/corkboard-thumbnail" --no-save --package-lock=false puppeteer@25.18.1
 
       - name: Generate Thumbnail Screenshot
         if: steps.thumbnail.outputs.capture == 'true'
@@ -88,9 +96,8 @@ jobs:
           SITE_URL: https://onethreenine.net
         run: |
           node << 'EOF'
-          const puppeteer = require('puppeteer');
-          const fs = require('fs');
           const path = require('path');
+          const puppeteer = require(path.join(process.env.RUNNER_TEMP, 'corkboard-thumbnail', 'node_modules', 'puppeteer'));
           
           (async () => {
             console.log('Launching browser...');
